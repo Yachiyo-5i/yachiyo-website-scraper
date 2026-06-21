@@ -1,0 +1,30 @@
+# Build outputs
+/scraper
+/dist/
+/bin/
+*.exe
+*.test
+
+# Test and coverage artifacts
+/coverage.out
+/coverage.html
+
+# Local runtime dumps
+*.log
+*.tmp
+*.dump
+*.dump.html
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+
+# Go workspace files are local-only unless this repo intentionally becomes a workspace.
+go.work
+go.work.sum

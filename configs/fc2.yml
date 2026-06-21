@@ -1,0 +1,187 @@
+site:
+  id: fc2
+  base_url: https://adult.contents.fc2.com
+
+defaults:
+  headers:
+    User-Agent: Mozilla/5.0
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+    Accept-Language: ja,en;q=0.8,zh-CN;q=0.7,zh;q=0.6
+
+tasks:
+  search_work:
+    params:
+      code:
+        required: true
+        regex: "(?i)^(?:fc2-ppv-|fc2-|ppv-)?([0-9]+)$"
+      page:
+        default: "1"
+
+    request:
+      method: GET
+      path: /article/{code}/
+
+    extract:
+      scope:
+        xpath: "//html[.//meta[@property='og:url' and contains(@content, '/article/')]]"
+      fields:
+        source_id:
+          xpath: ".//meta[@property='og:url']"
+          attr: content
+          regex: "/article/([0-9]+)/"
+          trim: true
+          on_missing: skip_item
+        code:
+          xpath: ".//meta[@property='og:title']"
+          attr: content
+          regex: "^(FC2(?:-PPV)?-[0-9]+)"
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//meta[@property='og:title']"
+          attr: content
+          regex: "^(?:FC2(?:-PPV)?-[0-9]+)\\s+(.+)$"
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: ".//meta[@property='og:url']"
+          attr: content
+          resolve_url: true
+        cover:
+          xpath: ".//meta[@property='og:image']"
+          attr: content
+          resolve_url: true
+        release_date:
+          xpath: ".//*[contains(text(), '販売日')][1]"
+          attr: text
+          trim: true
+          regex: "販売日\\s*:\\s*([0-9/]+)"
+        actors:
+          xpath: ""
+          multiple: true
+        tags:
+          xpath: ".//section[contains(concat(' ', normalize-space(@class), ' '), ' items_article_TagArea ')]//a[contains(concat(' ', normalize-space(@class), ' '), ' tagTag ')]"
+          attr: text
+          trim: true
+          multiple: true
+
+    pagination:
+      param: page
+      default: "1"
+
+    output:
+      type: object
+      items_key: works
+      format:
+        source_id: "{source_id}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        actors: "{actors}"
+        tags: "{tags}"
+
+  work_detail:
+    params:
+      code:
+        required: true
+        regex: "(?i)^(?:fc2-ppv-|fc2-|ppv-)?([0-9]+)$"
+
+    request:
+      method: GET
+      path: /article/{code}/
+
+    extract:
+      scope:
+        xpath: "//html[.//meta[@property='og:url' and contains(@content, '/article/')]]"
+      fields:
+        source_id:
+          xpath: ".//meta[@property='og:url']"
+          attr: content
+          regex: "/article/([0-9]+)/"
+          trim: true
+          on_missing: skip_item
+        code:
+          xpath: ".//meta[@property='og:title']"
+          attr: content
+          regex: "^(FC2(?:-PPV)?-[0-9]+)"
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//meta[@property='og:title']"
+          attr: content
+          regex: "^(?:FC2(?:-PPV)?-[0-9]+)\\s+(.+)$"
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: ".//meta[@property='og:url']"
+          attr: content
+          resolve_url: true
+        cover:
+          xpath: ".//meta[@property='og:image']"
+          attr: content
+          resolve_url: true
+        release_date:
+          xpath: ".//*[contains(text(), '販売日')][1]"
+          attr: text
+          trim: true
+          regex: "販売日\\s*:\\s*([0-9/]+)"
+        runtime_minutes:
+          xpath: ""
+        director:
+          xpath: ""
+        maker:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' items_article_headerInfo ')]//li[a[contains(@href, '/users/')]][1]/a[contains(@href, '/users/')]"
+          attr: text
+          trim: true
+        label:
+          xpath: ""
+        genres:
+          xpath: ".//section[contains(concat(' ', normalize-space(@class), ' '), ' items_article_TagArea ')]//a[contains(concat(' ', normalize-space(@class), ' '), ' tagTag ')]"
+          attr: text
+          trim: true
+          multiple: true
+        actors:
+          xpath: ""
+          multiple: true
+        sample_images:
+          xpath: ".//section[contains(concat(' ', normalize-space(@class), ' '), ' items_article_SampleImages ')]//a[@data-image-slideshow='sample-images']"
+          attr: href
+          resolve_url: true
+          multiple: true
+        magnet_links:
+          xpath: ""
+          multiple: true
+        rating:
+          xpath: ".//script[@type='application/ld+json' and contains(., 'ratingValue')]"
+          attr: text
+          regex: "\"ratingValue\":\\s*([0-9.]+)"
+        wanted_count:
+          xpath: ""
+        watched_count:
+          xpath: ""
+        owned_count:
+          xpath: ""
+
+    output:
+      type: object
+      format:
+        source_id: "{source_id}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        runtime_minutes: "{runtime_minutes}"
+        director: "{director}"
+        maker: "{maker}"
+        label: "{label}"
+        genres: "{genres}"
+        actors: "{actors}"
+        sample_images: "{sample_images}"
+        magnet_links: "{magnet_links}"
+        rating: "{rating}"
+        wanted_count: "{wanted_count}"
+        watched_count: "{watched_count}"
+        owned_count: "{owned_count}"

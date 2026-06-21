@@ -1,0 +1,483 @@
+site:
+  id: javbus
+  base_url: https://www.javbus.com
+
+defaults:
+  cookie: "age=verified; dv=1; existmag=all"
+  headers:
+    User-Agent: Mozilla/5.0
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+    Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+
+indexes:
+  actors:
+    path: indexes/javbus_actors.json
+    items_key: actors
+    match_field: name
+    value_field: id
+
+tasks:
+  search_work:
+    params:
+      code:
+        required: true
+      page:
+        default: "1"
+
+    request:
+      method: GET
+      path: /{code}
+
+    extract:
+      scope:
+        xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' container ')][.//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]]"
+      fields:
+        code:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '識別碼')]]/span[contains(@style, '#CC0000')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//h3"
+          attr: text
+          trim: true
+          regex: "^\\S+\\s+(.+)$"
+          on_missing: skip_item
+        cover:
+          xpath: ".//a[contains(concat(' ', normalize-space(@class), ' '), ' bigImage ')]"
+          attr: href
+          resolve_url: true
+        release_date:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '發行日期')]]"
+          attr: text
+          trim: true
+          regex: "發行日期:\\s*([0-9-]+)"
+        runtime_minutes:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '長度')]]"
+          attr: text
+          trim: true
+          regex: "長度:\\s*(\\d+)"
+          type: int
+        director:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '導演')]]/a"
+          attr: text
+          trim: true
+        maker:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '製作商')]]/a"
+          attr: text
+          trim: true
+        label:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '發行商')]]/a"
+          attr: text
+          trim: true
+        genres:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[.//span[contains(concat(' ', normalize-space(@class), ' '), ' genre ')]/label/input[@name='gr_sel']]//span[contains(concat(' ', normalize-space(@class), ' '), ' genre ')]/label/a"
+          attr: text
+          trim: true
+          multiple: true
+        actors:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' star-name ')]/a"
+          attr: text
+          trim: true
+          multiple: true
+        sample_images:
+          xpath: ".//a[contains(concat(' ', normalize-space(@class), ' '), ' sample-box ')]"
+          attr: href
+          resolve_url: true
+          multiple: true
+        tags:
+          xpath: ""
+          multiple: true
+
+    output:
+      type: object
+      items_key: works
+      format:
+        source_id: "{code}"
+        code: "{code}"
+        title: "{title}"
+        url: "https://www.javbus.com/{code}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        actors: "{actors}"
+        tags: "{tags}"
+
+  work_detail:
+    params:
+      code:
+        required: true
+
+    request:
+      method: GET
+      path: /{code}
+
+    extract:
+      scope:
+        xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' container ')][.//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]]"
+      fields:
+        code:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '識別碼')]]/span[contains(@style, '#CC0000')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//h3"
+          attr: text
+          trim: true
+          regex: "^\\S+\\s+(.+)$"
+          on_missing: skip_item
+        cover:
+          xpath: ".//a[contains(concat(' ', normalize-space(@class), ' '), ' bigImage ')]"
+          attr: href
+          resolve_url: true
+        release_date:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '發行日期')]]"
+          attr: text
+          trim: true
+          regex: "發行日期:\\s*([0-9-]+)"
+        runtime_minutes:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '長度')]]"
+          attr: text
+          trim: true
+          regex: "長度:\\s*(\\d+)"
+          type: int
+        director:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '導演')]]/a"
+          attr: text
+          trim: true
+        maker:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '製作商')]]/a"
+          attr: text
+          trim: true
+        label:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[span[contains(concat(' ', normalize-space(@class), ' '), ' header ') and contains(., '發行商')]]/a"
+          attr: text
+          trim: true
+        genres:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' info ')]/p[.//span[contains(concat(' ', normalize-space(@class), ' '), ' genre ')]/label/input[@name='gr_sel']]//span[contains(concat(' ', normalize-space(@class), ' '), ' genre ')]/label/a"
+          attr: text
+          trim: true
+          multiple: true
+        actors:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' star-name ')]/a"
+          attr: text
+          trim: true
+          multiple: true
+        sample_images:
+          xpath: ".//a[contains(concat(' ', normalize-space(@class), ' '), ' sample-box ')]"
+          attr: href
+          resolve_url: true
+          multiple: true
+        magnet_links:
+          xpath: ""
+          multiple: true
+        rating:
+          xpath: ""
+        wanted_count:
+          xpath: ""
+        watched_count:
+          xpath: ""
+        owned_count:
+          xpath: ""
+
+    output:
+      type: object
+      format:
+        source_id: "{code}"
+        code: "{code}"
+        title: "{title}"
+        url: "https://www.javbus.com/{code}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        runtime_minutes: "{runtime_minutes}"
+        director: "{director}"
+        maker: "{maker}"
+        label: "{label}"
+        genres: "{genres}"
+        actors: "{actors}"
+        sample_images: "{sample_images}"
+        magnet_links: "{magnet_links}"
+        rating: "{rating}"
+        wanted_count: "{wanted_count}"
+        watched_count: "{watched_count}"
+        owned_count: "{owned_count}"
+
+  actor_detail:
+    params:
+      name:
+        required: true
+      page:
+        default: "1"
+
+    resolve_params:
+      id:
+        index: actors
+        from: name
+
+    request:
+      method: GET
+      path: /star/{id}/{page}
+
+    extract:
+      meta:
+        total:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' alert-success ')]"
+          attr: text
+          trim: true
+          regex: "全部影片[^0-9]*(\\d+)"
+          type: int
+        magnet_total:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' alert-success ')]"
+          attr: text
+          trim: true
+          regex: "已有磁力[^0-9]*(\\d+)"
+          type: int
+        prev_page:
+          xpath: "//ul[contains(concat(' ', normalize-space(@class), ' '), ' pagination ')]//a[@id='pre']"
+          attr: href
+          regex: "/(\\d+)$"
+          type: int
+        next_page:
+          xpath: "//ul[contains(concat(' ', normalize-space(@class), ' '), ' pagination ')]//a[@id='next']"
+          attr: href
+          regex: "/(\\d+)$"
+          type: int
+        last_visible_page:
+          xpath: "(//ul[contains(concat(' ', normalize-space(@class), ' '), ' pagination ')]//a[not(@id='pre') and not(@id='next') and not(@id='prev')])[last()]"
+          attr: text
+          trim: true
+          regex: "^(\\d+)$"
+          type: int
+      page:
+        id:
+          xpath: "//link[@rel='canonical']"
+          attr: href
+          regex: "/star/([^/]+)"
+        name:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//span[contains(concat(' ', normalize-space(@class), ' '), ' pb10 ')]"
+          attr: text
+          trim: true
+        ruby:
+          xpath: ""
+        image:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//img"
+          attr: src
+          resolve_url: true
+        url:
+          xpath: "//link[@rel='canonical']"
+          attr: href
+        birthday:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//p[contains(., '生日')]"
+          attr: text
+          trim: true
+          regex: "生日:\\s*([0-9-]+)"
+        age:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//p[contains(., '年齡')]"
+          attr: text
+          trim: true
+          regex: "年齡:\\s*(\\d+)"
+          type: int
+        height_cm:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//p[contains(., '身高')]"
+          attr: text
+          trim: true
+          regex: "身高:\\s*(\\d+)\\s*cm"
+          type: int
+        cup:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//p[contains(., '罩杯')]"
+          attr: text
+          trim: true
+          regex: "罩杯:\\s*(\\S+)"
+        bust_cm:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//p[contains(., '胸圍')]"
+          attr: text
+          trim: true
+          regex: "胸圍:\\s*(\\d+)\\s*cm"
+          type: int
+        waist_cm:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//p[contains(., '腰圍')]"
+          attr: text
+          trim: true
+          regex: "腰圍:\\s*(\\d+)\\s*cm"
+          type: int
+        hips_cm:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ')]//p[contains(., '臀圍')]"
+          attr: text
+          trim: true
+          regex: "臀圍:\\s*(\\d+)\\s*cm"
+          type: int
+        followers:
+          xpath: ""
+        profile:
+          xpath: ""
+      scope:
+        xpath: "//a[contains(concat(' ', normalize-space(@class), ' '), ' movie-box ')]"
+      fields:
+        code:
+          xpath: ".//date[1]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//img"
+          attr: title
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: "."
+          attr: href
+          resolve_url: true
+        cover:
+          xpath: ".//img"
+          attr: src
+          resolve_url: true
+        release_date:
+          xpath: ".//date[2]"
+          attr: text
+          trim: true
+        tags:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' item-tag ')]//button"
+          attr: text
+          trim: true
+          multiple: true
+        actors:
+          xpath: ""
+          multiple: true
+
+    pagination:
+      param: page
+      default: "1"
+      total_field: total
+
+    output:
+      type: object
+      items_key: works
+      page_format:
+        actor:
+          id: "{id}"
+          name: "{name}"
+          url: "https://www.javbus.com/star/{id}"
+          ruby: "{ruby}"
+          image: "{image}"
+          birthday: "{birthday}"
+          age: "{age}"
+          height_cm: "{height_cm}"
+          cup: "{cup}"
+          bust_cm: "{bust_cm}"
+          waist_cm: "{waist_cm}"
+          hips_cm: "{hips_cm}"
+          followers: "{followers}"
+          profile: "{profile}"
+      format:
+        source_id: "{code}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        actors: "{actors}"
+        tags: "{tags}"
+
+  actor_list:
+    params:
+      page:
+        default: "1"
+
+    request:
+      method: GET
+      path: /actresses/{page}
+
+    extract:
+      meta:
+        prev_page:
+          xpath: "//ul[contains(concat(' ', normalize-space(@class), ' '), ' pagination ')]//a[@id='pre']"
+          attr: href
+          regex: "/(\\d+)$"
+          type: int
+        next_page:
+          xpath: "//ul[contains(concat(' ', normalize-space(@class), ' '), ' pagination ')]//a[@id='next']"
+          attr: href
+          regex: "/(\\d+)$"
+          type: int
+        last_visible_page:
+          xpath: "(//ul[contains(concat(' ', normalize-space(@class), ' '), ' pagination ')]//a[not(@id='pre') and not(@id='next') and not(@id='prev')])[last()]"
+          attr: text
+          trim: true
+          regex: "^(\\d+)$"
+          type: int
+      scope:
+        xpath: "//a[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ') and contains(@href, '/star/')]"
+      fields:
+        id:
+          xpath: "."
+          attr: href
+          regex: "/star/([^/]+)"
+          on_missing: skip_item
+        name:
+          xpath: ".//img"
+          attr: title
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: "."
+          attr: href
+          resolve_url: true
+        image:
+          xpath: ".//img"
+          attr: src
+          resolve_url: true
+
+    pagination:
+      param: page
+      default: "1"
+
+    output:
+      type: object
+      items_key: actors
+      format:
+        id: "{id}"
+        name: "{name}"
+        url: "{url}"
+        image: "{image}"
+
+  actor_search:
+    params:
+      keyword:
+        required: true
+
+    request:
+      method: GET
+      path: /searchstar/{keyword}&type=&parent=ce
+      accept_status: [404]
+
+    extract:
+      scope:
+        xpath: "//a[contains(concat(' ', normalize-space(@class), ' '), ' avatar-box ') and contains(@href, '/star/')]"
+      fields:
+        id:
+          xpath: "."
+          attr: href
+          regex: "/star/([^/]+)"
+          on_missing: skip_item
+        name:
+          xpath: ".//img"
+          attr: title
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: "."
+          attr: href
+          resolve_url: true
+        image:
+          xpath: ".//img"
+          attr: src
+          resolve_url: true
+
+    output:
+      type: object
+      items_key: actors
+      format:
+        id: "{id}"
+        name: "{name}"
+        url: "{url}"
+        image: "{image}"

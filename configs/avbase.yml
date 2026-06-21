@@ -1,0 +1,337 @@
+site:
+  id: avbase
+  base_url: https://www.avbase.net
+
+defaults:
+  headers:
+    User-Agent: Mozilla/5.0
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+    Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+
+tasks:
+  search_work:
+    params:
+      code:
+        required: true
+      page:
+        default: "1"
+
+    request:
+      method: GET
+      path: /works
+      query:
+        q: "{code}"
+        page: "{page}"
+
+    extract:
+      meta:
+        total:
+          xpath: "//script[@id='__NEXT_DATA__']"
+          attr: text
+          regex: "\"total\":(\\d+)"
+          type: int
+      scope:
+        xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' relative ')][.//a[contains(@href, '/works/') and not(contains(@href, '/works/date/')) and contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' btn-ghost ')]]"
+      fields:
+        source_id:
+          xpath: ".//a[contains(@href, '/works/') and not(contains(@href, '/works/date/')) and contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' btn-ghost ')]"
+          attr: href
+          regex: "/works/([^/?#]+)"
+          trim: true
+          on_missing: skip_item
+        code:
+          xpath: ".//span[contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' text-gray-500 ') and contains(text(), '-')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//a[contains(@href, '/works/') and not(contains(@href, '/works/date/')) and contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' btn-ghost ')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: ".//a[contains(@href, '/works/') and not(contains(@href, '/works/date/')) and contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' btn-ghost ')]"
+          attr: href
+          resolve_url: true
+          on_missing: skip_item
+        release_date:
+          xpath: ".//a[contains(@href, '/works/date/')]"
+          attr: text
+          trim: true
+        cover:
+          xpath: ".//img[contains(@class, 'text-xs') and @src]"
+          attr: src
+          resolve_url: true
+        actors:
+          xpath: ".//a[contains(@href, '/talents/')]/span"
+          attr: text
+          trim: true
+          multiple: true
+        tags:
+          xpath: ""
+          multiple: true
+
+    pagination:
+      param: page
+      default: "1"
+      total_field: total
+
+    output:
+      type: object
+      items_key: works
+      format:
+        source_id: "{source_id}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        actors: "{actors}"
+        tags: "{tags}"
+
+  work_detail:
+    params:
+      code:
+        required: true
+
+    request:
+      method: GET
+      path: /works/{code}
+
+    extract:
+      scope:
+        xpath: "//html[.//link[@rel='canonical' and contains(@href, '/works/')]]"
+      fields:
+        source_id:
+          xpath: ".//link[@rel='canonical']"
+          attr: href
+          regex: "/works/([^/?#]+)$"
+          trim: true
+          on_missing: skip_item
+        code:
+          xpath: ".//script[@id='__NEXT_DATA__']"
+          attr: text
+          regex: "\"work_id\":\"([^\"]+)\""
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//h1"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: ".//link[@rel='canonical']"
+          attr: href
+          resolve_url: true
+        cover:
+          xpath: ".//img[contains(concat(' ', normalize-space(@class), ' '), ' max-w-full ') and @src]"
+          attr: src
+          resolve_url: true
+        release_date:
+          xpath: ".//*[normalize-space(.)='発売日']/following-sibling::*[1]"
+          attr: text
+          trim: true
+        runtime_minutes:
+          xpath: ".//*[normalize-space(.)='収録分数']/following-sibling::*[1]"
+          attr: text
+          trim: true
+          regex: "(\\d+)"
+          type: int
+        director:
+          xpath: ".//*[normalize-space(.)='監督']/following-sibling::*[1]"
+          attr: text
+          trim: true
+        maker:
+          xpath: ".//*[normalize-space(.)='メーカー']/following-sibling::*[1]"
+          attr: text
+          trim: true
+        label:
+          xpath: ".//*[normalize-space(.)='レーベル']/following-sibling::*[1]"
+          attr: text
+          trim: true
+        genres:
+          xpath: ".//a[contains(@href, '/tags/')]"
+          attr: text
+          trim: true
+          multiple: true
+        actors:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' col-start-1 ')]//a[contains(@href, '/talents/')]"
+          attr: text
+          trim: true
+          multiple: true
+        sample_images:
+          xpath: ".//a[.//img[contains(concat(' ', normalize-space(@class), ' '), ' h-40 ')]]"
+          attr: href
+          resolve_url: true
+          multiple: true
+        magnet_links:
+          xpath: ""
+          multiple: true
+        rating:
+          xpath: ""
+        wanted_count:
+          xpath: ""
+        watched_count:
+          xpath: ""
+        owned_count:
+          xpath: ""
+
+    output:
+      type: object
+      format:
+        source_id: "{source_id}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        runtime_minutes: "{runtime_minutes}"
+        director: "{director}"
+        maker: "{maker}"
+        label: "{label}"
+        genres: "{genres}"
+        actors: "{actors}"
+        sample_images: "{sample_images}"
+        magnet_links: "{magnet_links}"
+        rating: "{rating}"
+        wanted_count: "{wanted_count}"
+        watched_count: "{watched_count}"
+        owned_count: "{owned_count}"
+
+  actor_detail:
+    params:
+      name:
+        required: true
+      page:
+        default: "1"
+
+    request:
+      method: GET
+      path: /talents/{name}
+      query:
+        page: "{page}"
+
+    extract:
+      meta:
+        total:
+          xpath: "//script[@id='__NEXT_DATA__']"
+          attr: text
+          regex: "\"total\":(\\d+)"
+          type: int
+      page:
+        id:
+          xpath: "//script[@id='__NEXT_DATA__']"
+          attr: text
+          regex: "\"talent\":\\{\"id\":(\\d+)"
+          type: int
+        name:
+          xpath: "//h1[contains(@class, 'font-semibold')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        ruby:
+          xpath: "//h1[contains(@class, 'font-semibold')]/following-sibling::p[1]"
+          attr: text
+          trim: true
+        image:
+          xpath: "//img[@data-slot='avatar-image']"
+          attr: src
+          resolve_url: true
+        birthday:
+          xpath: ""
+        age:
+          xpath: ""
+        height_cm:
+          xpath: ""
+        cup:
+          xpath: ""
+        bust_cm:
+          xpath: ""
+        waist_cm:
+          xpath: ""
+        hips_cm:
+          xpath: ""
+        followers:
+          xpath: "//script[@id='__NEXT_DATA__']"
+          attr: text
+          regex: "\"total_followers\":(\\d+)"
+          type: int
+        profile:
+          xpath: "//script[@id='__NEXT_DATA__']"
+          attr: text
+          regex: "\"profile\":\"([^\"]*)\""
+          trim: true
+      scope:
+        xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' relative ')][.//a[contains(@href, '/works/') and not(contains(@href, '/works/date/')) and contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' btn-ghost ')]]"
+      fields:
+        source_id:
+          xpath: ".//a[contains(@href, '/works/') and not(contains(@href, '/works/date/')) and contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' btn-ghost ')]"
+          attr: href
+          regex: "/works/([^/?#]+)"
+          trim: true
+          on_missing: skip_item
+        code:
+          xpath: ".//span[contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' text-gray-500 ') and contains(text(), '-')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//a[contains(@href, '/works/') and not(contains(@href, '/works/date/')) and contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' btn-ghost ')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: ".//a[contains(@href, '/works/') and not(contains(@href, '/works/date/')) and contains(concat(' ', normalize-space(@class), ' '), ' font-bold ') and contains(concat(' ', normalize-space(@class), ' '), ' btn-ghost ')]"
+          attr: href
+          resolve_url: true
+          on_missing: skip_item
+        release_date:
+          xpath: ".//a[contains(@href, '/works/date/')]"
+          attr: text
+          trim: true
+        cover:
+          xpath: ".//img[contains(@class, 'text-xs') and @src]"
+          attr: src
+          resolve_url: true
+        actors:
+          xpath: ".//a[contains(@href, '/talents/')]/span"
+          attr: text
+          trim: true
+          multiple: true
+        tags:
+          xpath: ""
+          multiple: true
+
+    pagination:
+      param: page
+      default: "1"
+      total_field: total
+
+    output:
+      type: object
+      items_key: works
+      page_format:
+        actor:
+          id: "{id}"
+          name: "{name}"
+          url: "https://www.avbase.net/talents/{name}"
+          ruby: "{ruby}"
+          image: "{image}"
+          birthday: "{birthday}"
+          age: "{age}"
+          height_cm: "{height_cm}"
+          cup: "{cup}"
+          bust_cm: "{bust_cm}"
+          waist_cm: "{waist_cm}"
+          hips_cm: "{hips_cm}"
+          followers: "{followers}"
+          profile: "{profile}"
+      format:
+        source_id: "{source_id}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        actors: "{actors}"
+        tags: "{tags}"

@@ -1,0 +1,207 @@
+site:
+  id: javlibrary
+  base_url: https://www.javlibrary.com
+
+defaults:
+  headers:
+    User-Agent: Mozilla/5.0
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+    Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+
+tasks:
+  search_work:
+    params:
+      code:
+        required: true
+      page:
+        default: "1"
+
+    request:
+      method: GET
+      path: /cn/vl_searchbyid.php
+      query:
+        keyword: "{code}"
+        page: "{page}"
+
+    extract:
+      meta:
+        title:
+          xpath: "//div[@id='rightcolumn']/div[contains(concat(' ', normalize-space(@class), ' '), ' boxtitle ')]"
+          attr: text
+          trim: true
+        total_pages:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' page_selector ')]/a[contains(concat(' ', normalize-space(@class), ' '), ' last ')]"
+          attr: href
+          regex: "page=(\\d+)"
+          type: int
+      scope:
+        xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' videos ')]/div[contains(concat(' ', normalize-space(@class), ' '), ' video ')]"
+      fields:
+        source_id:
+          xpath: "."
+          attr: id
+          regex: "^vid_(.+)$"
+          trim: true
+          on_missing: skip_item
+        code:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' id ')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' title ')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: ".//a[.//div[contains(concat(' ', normalize-space(@class), ' '), ' id ')]]"
+          attr: href
+          resolve_url: true
+          on_missing: skip_item
+        cover:
+          xpath: ".//img[@src]"
+          attr: src
+          resolve_url: true
+        release_date:
+          xpath: ""
+        actors:
+          xpath: ""
+          multiple: true
+        tags:
+          xpath: ""
+          multiple: true
+
+    pagination:
+      param: page
+      default: "1"
+
+    output:
+      type: object
+      items_key: works
+      format:
+        source_id: "{source_id}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        actors: "{actors}"
+        tags: "{tags}"
+
+  work_detail:
+    params:
+      code:
+        required: true
+
+    request:
+      method: GET
+      path: /cn/{code}.html
+
+    extract:
+      scope:
+        xpath: "//div[@id='rightcolumn']"
+      fields:
+        source_id:
+          xpath: ".//div[@id='video_title']//a[contains(@href, '.html')]"
+          attr: href
+          regex: "/cn/([^/]+)\\.html$"
+          trim: true
+          on_missing: skip_item
+        code:
+          xpath: ".//div[@id='video_id']//td[contains(concat(' ', normalize-space(@class), ' '), ' text ')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//div[@id='video_title']//h3//a"
+          attr: text
+          trim: true
+          regex: "^\\S+\\s+(.+)$"
+          on_missing: skip_item
+        url:
+          xpath: ".//div[@id='video_title']//a[contains(@href, '.html')]"
+          attr: href
+          resolve_url: true
+        cover:
+          xpath: ".//img[@id='video_jacket_img']"
+          attr: src
+          resolve_url: true
+        release_date:
+          xpath: ".//div[@id='video_date']//td[contains(concat(' ', normalize-space(@class), ' '), ' text ')]"
+          attr: text
+          trim: true
+        runtime_minutes:
+          xpath: ".//div[@id='video_length']//span[contains(concat(' ', normalize-space(@class), ' '), ' text ')]"
+          attr: text
+          trim: true
+          type: int
+        director:
+          xpath: ".//div[@id='video_director']//td[contains(concat(' ', normalize-space(@class), ' '), ' text ')]//a"
+          attr: text
+          trim: true
+        maker:
+          xpath: ".//div[@id='video_maker']//td[contains(concat(' ', normalize-space(@class), ' '), ' text ')]//a"
+          attr: text
+          trim: true
+        label:
+          xpath: ".//div[@id='video_label']//td[contains(concat(' ', normalize-space(@class), ' '), ' text ')]//a"
+          attr: text
+          trim: true
+        rating:
+          xpath: ".//div[@id='video_review']//span[contains(concat(' ', normalize-space(@class), ' '), ' score ')]"
+          attr: text
+          trim: true
+          regex: "\\(([^)]+)\\)"
+        genres:
+          xpath: ".//div[@id='video_genres']//span[contains(concat(' ', normalize-space(@class), ' '), ' genre ')]//a"
+          attr: text
+          trim: true
+          multiple: true
+        actors:
+          xpath: ".//div[@id='video_cast']//span[contains(concat(' ', normalize-space(@class), ' '), ' star ')]//a"
+          attr: text
+          trim: true
+          multiple: true
+        sample_images:
+          xpath: ""
+          multiple: true
+        magnet_links:
+          xpath: ""
+          multiple: true
+        wanted_count:
+          xpath: ".//span[@id='subscribed']"
+          attr: text
+          regex: "(\\d+) 个使用者想要"
+          type: int
+        watched_count:
+          xpath: ".//span[@id='watched']"
+          attr: text
+          regex: "(\\d+) 个使用者看过"
+          type: int
+        owned_count:
+          xpath: ".//span[@id='owned']"
+          attr: text
+          regex: "(\\d+) 个使用者拥有"
+          type: int
+
+    output:
+      type: object
+      format:
+        source_id: "{source_id}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        runtime_minutes: "{runtime_minutes}"
+        director: "{director}"
+        maker: "{maker}"
+        label: "{label}"
+        genres: "{genres}"
+        actors: "{actors}"
+        sample_images: "{sample_images}"
+        magnet_links: "{magnet_links}"
+        rating: "{rating}"
+        wanted_count: "{wanted_count}"
+        watched_count: "{watched_count}"
+        owned_count: "{owned_count}"
