@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0 (2026-06-21)
+
+
+### Features
+
+* 🎸 add scraper cli ([c7b1743](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/c7b174356ded9234608b0999939f40fc40b4892b))
+
 ## [1.0.1](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.0.0...v1.0.1) (2026-06-21)
 
 
