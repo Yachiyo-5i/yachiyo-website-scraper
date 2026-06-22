@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.1.0...v1.2.0) (2026-06-22)
+
+
+### Features
+
+* 🎸 add gfriends actor image enhancement ([eb3e3e3](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/eb3e3e33fc98a10ce834b230fa8c0dfb1a576059))
+
 ## [1.1.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.0.0...v1.1.0) (2026-06-22)
 
 
