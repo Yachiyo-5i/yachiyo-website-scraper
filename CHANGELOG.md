@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.0.0...v1.1.0) (2026-06-22)
+
+
+### Features
+
+* 🎸 add darwin release builds ([1471952](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/14719525b17a0a89af005593d8356a69de6258c3))
+
 ## 1.0.0 (2026-06-21)
 
 
