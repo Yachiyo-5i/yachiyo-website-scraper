@@ -240,6 +240,34 @@ stringified.
 
 Environment variables can be read with `{env.NAME}`.
 
+## Enhancements
+
+Tasks can optionally enrich formatted output after extraction. Current
+enhancement support is limited to actor images from Gfriends:
+
+```yaml
+enhance:
+  actor_image:
+    source: gfriends
+    items_key: actors
+    name_field: name
+    image_field: image
+```
+
+When enabled, the runner looks up each actor by `name_field` and replaces
+`image_field` with a Gfriends image URL when one is found. `items_key` can point
+to either a list of actors, such as `actors`, or a single actor object, such as
+`actor`. If Gfriends is unavailable or has no match, the original site image is
+kept.
+
+The Gfriends `Filetree.json` index is cached next to the scraper binary at:
+
+```text
+cache/gfriends/Filetree.json
+```
+
+Only the index is cached; image files are returned as remote URLs.
+
 ## Next Step
 
 See the [Site Adapter Guide](site-adapters.md) for a practical workflow.

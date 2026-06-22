@@ -20,6 +20,11 @@ func TestLoadBuiltinSite(t *testing.T) {
 	if _, err := cfg.Task("search_work"); err != nil {
 		t.Fatal(err)
 	}
+	task, err := cfg.Task("actor_detail")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertActorImageEnhancement(t, task, "actor")
 
 	cfg, err = config.Load("javlibrary")
 	if err != nil {
@@ -41,6 +46,29 @@ func TestLoadBuiltinSite(t *testing.T) {
 	}
 	if _, err := cfg.Task("work_detail"); err != nil {
 		t.Fatal(err)
+	}
+	task, err = cfg.Task("actor_detail")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertActorImageEnhancement(t, task, "actor")
+	task, err = cfg.Task("actor_search")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertActorImageEnhancement(t, task, "actors")
+}
+
+func assertActorImageEnhancement(t *testing.T, task config.Task, itemsKey string) {
+	t.Helper()
+	if task.Enhance.ActorImage == nil {
+		t.Fatal("expected actor image enhancement")
+	}
+	if task.Enhance.ActorImage.Source != "gfriends" {
+		t.Fatalf("unexpected actor image enhancement source: %q", task.Enhance.ActorImage.Source)
+	}
+	if task.Enhance.ActorImage.ItemsKey != itemsKey {
+		t.Fatalf("unexpected actor image enhancement items key: %q", task.Enhance.ActorImage.ItemsKey)
 	}
 }
 
@@ -114,5 +142,30 @@ tasks:
 `))
 	if err == nil {
 		t.Fatal("expected invalid param regex error")
+	}
+}
+
+func TestValidateRejectsUnsupportedEnhancementSource(t *testing.T) {
+	_, err := config.Parse([]byte(`
+site:
+  id: unsupported_enhancement
+  base_url: http://example.test
+tasks:
+  actor_search:
+    request:
+      path: /search
+    extract:
+      fields:
+        name:
+          xpath: "//title"
+    output:
+      format:
+        name: "{name}"
+    enhance:
+      actor_image:
+        source: unknown
+`))
+	if err == nil {
+		t.Fatal("expected unsupported enhancement source error")
 	}
 }

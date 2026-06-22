@@ -23,6 +23,7 @@ type Options struct {
 	Params     map[string]string
 	Runtime    fetcher.RuntimeOptions
 	DumpHTML   string
+	Gfriends   ActorImageLookup
 }
 
 type Result struct {
@@ -162,6 +163,7 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) (*Result, error)
 	} else {
 		result.Data = formatted
 	}
+	applyEnhancements(ctx, task, result, opts)
 	return result, nil
 }
 

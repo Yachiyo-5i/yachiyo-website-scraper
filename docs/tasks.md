@@ -174,6 +174,10 @@ Examples:
 ./scraper run -config javbus -task actor_detail -param name=Alice -param page=1
 ```
 
+For AVBase and JavBus, `data.actor.image` is enhanced by Gfriends when a
+matching actor name exists. If Gfriends has no match or its index cannot be
+loaded, the site image is kept.
+
 Response shape:
 
 ```json
@@ -234,6 +238,11 @@ Example:
 ```bash
 ./scraper run -config javbus -task actor_search -param keyword=Alice
 ```
+
+For JavBus, `image` is enhanced by Gfriends when a matching actor name exists.
+If Gfriends has no match or its index cannot be loaded, the site image is kept.
+The Gfriends index cache is stored beside the scraper binary at
+`cache/gfriends/Filetree.json`.
 
 Response shape:
 

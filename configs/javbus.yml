@@ -378,6 +378,13 @@ tasks:
         actors: "{actors}"
         tags: "{tags}"
 
+    enhance:
+      actor_image:
+        source: gfriends
+        items_key: actor
+        name_field: name
+        image_field: image
+
   actor_list:
     params:
       page:
@@ -481,3 +488,10 @@ tasks:
         name: "{name}"
         url: "{url}"
         image: "{image}"
+
+    enhance:
+      actor_image:
+        source: gfriends
+        items_key: actors
+        name_field: name
+        image_field: image

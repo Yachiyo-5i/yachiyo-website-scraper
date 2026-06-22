@@ -560,6 +560,181 @@ tasks:
 	}
 }
 
+func TestRunEnhancesActorSearchImageFromGfriends(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/searchstar/Alice" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`
+			<html><body>
+				<a class="avatar-box" href="/star/a1">
+					<img title="Alice" src="/actors/site-alice.jpg">
+				</a>
+			</body></html>
+		`))
+	}))
+	defer server.Close()
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(`
+site:
+  id: local
+  base_url: __BASE__
+tasks:
+  actor_search:
+    params:
+      keyword:
+        required: true
+    request:
+      method: GET
+      path: /searchstar/{keyword}
+    extract:
+      scope:
+        xpath: "//a[contains(@class, 'avatar-box')]"
+      fields:
+        id:
+          xpath: "."
+          attr: href
+          regex: "/star/([^/]+)"
+          on_missing: skip_item
+        name:
+          xpath: ".//img"
+          attr: title
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: "."
+          attr: href
+          resolve_url: true
+        image:
+          xpath: ".//img"
+          attr: src
+          resolve_url: true
+    output:
+      type: object
+      items_key: actors
+      format:
+        id: "{id}"
+        name: "{name}"
+        url: "{url}"
+        image: "{image}"
+    enhance:
+      actor_image:
+        source: gfriends
+        items_key: actors
+        name_field: name
+        image_field: image
+`, "__BASE__", server.URL))
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "actor_search",
+		Params:   map[string]string{"keyword": "Alice"},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+		Gfriends: runner.StaticActorImageLookup{"Alice": "https://cdn.example.test/Content/Alice.jpg"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+	data, ok := res.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected data type: %T", res.Data)
+	}
+	actors, ok := data["actors"].([]map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected actors type: %T", data["actors"])
+	}
+	if len(actors) != 1 {
+		t.Fatalf("expected one actor, got %d", len(actors))
+	}
+	if actors[0]["image"] != "https://cdn.example.test/Content/Alice.jpg" {
+		t.Fatalf("expected gfriends image to override site image, got %#v", actors[0]["image"])
+	}
+}
+
+func TestRunKeepsActorSearchImageWhenGfriendsMisses(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/searchstar/Bob" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`
+			<html><body>
+				<a class="avatar-box" href="/star/b1">
+					<img title="Bob" src="/actors/site-bob.jpg">
+				</a>
+			</body></html>
+		`))
+	}))
+	defer server.Close()
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(`
+site:
+  id: local
+  base_url: __BASE__
+tasks:
+  actor_search:
+    params:
+      keyword:
+        required: true
+    request:
+      method: GET
+      path: /searchstar/{keyword}
+    extract:
+      scope:
+        xpath: "//a[contains(@class, 'avatar-box')]"
+      fields:
+        id:
+          xpath: "."
+          attr: href
+          regex: "/star/([^/]+)"
+          on_missing: skip_item
+        name:
+          xpath: ".//img"
+          attr: title
+          trim: true
+          on_missing: skip_item
+        image:
+          xpath: ".//img"
+          attr: src
+          resolve_url: true
+    output:
+      type: object
+      items_key: actors
+      format:
+        id: "{id}"
+        name: "{name}"
+        image: "{image}"
+    enhance:
+      actor_image:
+        source: gfriends
+        items_key: actors
+        name_field: name
+        image_field: image
+`, "__BASE__", server.URL))
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "actor_search",
+		Params:   map[string]string{"keyword": "Bob"},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+		Gfriends: runner.StaticActorImageLookup{"Alice": "https://cdn.example.test/Content/Alice.jpg"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+	data := res.Data.(map[string]interface{})
+	actors := data["actors"].([]map[string]interface{})
+	want := server.URL + "/actors/site-bob.jpg"
+	if actors[0]["image"] != want {
+		t.Fatalf("expected site image fallback %q, got %#v", want, actors[0]["image"])
+	}
+}
+
 func TestRunWrapsItemsKeyWithoutPageFormatAndMultipleFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/works" {
@@ -791,6 +966,96 @@ tasks:
 	}
 	if works[1]["url"] != server.URL+"/works/AAA-002" {
 		t.Fatalf("unexpected second work url: %#v", works[1]["url"])
+	}
+}
+
+func TestRunEnhancesActorDetailImageFromGfriends(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/talents/Alice" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`
+			<html><body>
+				<section class="actor">
+					<h1>Alice</h1>
+					<img class="avatar" src="/actors/site-alice.jpg">
+				</section>
+				<div class="work"><a class="title" href="/works/AAA-001">First Work</a></div>
+			</body></html>
+		`))
+	}))
+	defer server.Close()
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(`
+site:
+  id: local
+  base_url: __BASE__
+tasks:
+  actor_detail:
+    params:
+      name:
+        required: true
+    request:
+      method: GET
+      path: /talents/{name}
+    extract:
+      page:
+        name:
+          xpath: "//section[contains(@class, 'actor')]/h1"
+          attr: text
+          trim: true
+        image:
+          xpath: "//section[contains(@class, 'actor')]//img[contains(@class, 'avatar')]"
+          attr: src
+          resolve_url: true
+      scope:
+        xpath: "//div[contains(@class, 'work')]"
+      fields:
+        title:
+          xpath: ".//a[contains(@class, 'title')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+    output:
+      type: object
+      items_key: works
+      page_format:
+        actor:
+          name: "{name}"
+          image: "{image}"
+      format:
+        title: "{title}"
+    enhance:
+      actor_image:
+        source: gfriends
+        items_key: actor
+        name_field: name
+        image_field: image
+`, "__BASE__", server.URL))
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "actor_detail",
+		Params:   map[string]string{"name": "Alice"},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+		Gfriends: runner.StaticActorImageLookup{"Alice": "https://cdn.example.test/Content/Alice.jpg"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+	data, ok := res.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected data type: %T", res.Data)
+	}
+	actor, ok := data["actor"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected actor type: %T", data["actor"])
+	}
+	if actor["image"] != "https://cdn.example.test/Content/Alice.jpg" {
+		t.Fatalf("expected gfriends image to override site image, got %#v", actor["image"])
 	}
 }
 

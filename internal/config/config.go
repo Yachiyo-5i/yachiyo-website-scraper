@@ -35,6 +35,7 @@ type Task struct {
 	Extract       ExtractConfig            `yaml:"extract"`
 	Pagination    *PaginationConfig        `yaml:"pagination"`
 	Output        OutputConfig             `yaml:"output"`
+	Enhance       EnhanceConfig            `yaml:"enhance"`
 }
 
 type ParamSpec struct {
@@ -103,6 +104,17 @@ type OutputConfig struct {
 	ItemsKey   string                 `yaml:"items_key"`
 	PageFormat map[string]interface{} `yaml:"page_format"`
 	Format     map[string]interface{} `yaml:"format"`
+}
+
+type EnhanceConfig struct {
+	ActorImage *ActorImageEnhanceConfig `yaml:"actor_image"`
+}
+
+type ActorImageEnhanceConfig struct {
+	Source     string `yaml:"source"`
+	ItemsKey   string `yaml:"items_key"`
+	NameField  string `yaml:"name_field"`
+	ImageField string `yaml:"image_field"`
 }
 
 func Load(path string) (*Config, error) {
@@ -179,6 +191,15 @@ func (c *Config) validateTask(name string, task Task) error {
 	if task.Pagination != nil {
 		if strings.TrimSpace(task.Pagination.Param) == "" {
 			return fmt.Errorf("task %q: pagination.param is required", name)
+		}
+	}
+	if task.Enhance.ActorImage != nil {
+		source := strings.ToLower(strings.TrimSpace(task.Enhance.ActorImage.Source))
+		if source == "" {
+			return fmt.Errorf("task %q: enhance.actor_image.source is required", name)
+		}
+		if source != "gfriends" {
+			return fmt.Errorf("task %q: unsupported enhance.actor_image.source %q", name, task.Enhance.ActorImage.Source)
 		}
 	}
 	for target, resolver := range task.ResolveParams {
