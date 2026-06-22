@@ -7,6 +7,21 @@ pagination metadata, default non-account cookies, and output fields are defined
 in YAML. Runtime fetch behavior, including Cloudflare challenge handling and
 FlareSolverr, is selected with CLI flags or environment variables.
 
+## Site Support
+
+Bundled site configs are embedded into the binary and can be selected with
+`-config`.
+
+| Capability | Task | AVBase | JavBus | JavLibrary | FC2 |
+| --- | --- | --- | --- | --- | --- |
+| Work search or work list | `search_work` | Yes | Yes | Yes | Yes |
+| Work detail | `work_detail` | Yes | Yes | Yes | Yes |
+| Actor detail and actor works | `actor_detail` | Yes | Yes | No | No |
+| Actor candidate search | `actor_search` | No | Yes | No | No |
+
+Pagination is single-page only. The CLI requests the page you pass with
+`-param page=...` and returns that page's data.
+
 ## Quick Start
 
 Build the local binary:
@@ -33,44 +48,21 @@ Run a task:
 ./scraper run -config avbase -task search_work -param code=PRED-886
 ```
 
+For sites that need challenge bypassing:
+
+```bash
+./scraper run \
+  -config avbase \
+  -task search_work \
+  -param code=PRED-886 \
+  -challenge bypass \
+  -flaresolverr http://127.0.0.1:8191
+```
+
 ## Documentation
 
 Start with the [Documentation Index](docs/README.md).
 
-## Current Scope
+## License
 
-- Static HTML only
-- YAML-driven site and task definitions
-- Built-in site configs embedded into the binary
-- XPath field extraction
-- Regex post-processing
-- Page-level metadata extraction, such as total result count
-- Single-page pagination by request parameter
-- Default cookie, runtime cookie override, and FlareSolverr support
-
-## Project Layout
-
-```text
-cmd/scraper/        CLI entrypoint
-configs/            Built-in site YAML configs, embedded into the binary
-indexes/            Built-in index data used by configured site tasks
-internal/config/    YAML loading, validation, and embedded config lookup
-internal/extractor/ XPath extraction and output formatting
-internal/fetcher/   HTTP, challenge detection, and FlareSolverr integration
-internal/indexer/   Local JSON index lookup support
-internal/runner/    Task execution pipeline
-scripts/            Release build scripts
-docs/               User and contributor documentation
-```
-
-Generated binaries, `dist/`, local dumps, and editor files are ignored by
-`.gitignore`. The files under `configs/` and `indexes/` are source assets and
-should be committed.
-
-## Development Shortcut
-
-```bash
-go test ./...
-go test ./... -coverprofile=/tmp/yachiyo-website-scraper.cover.out -covermode=atomic
-go tool cover -func=/tmp/yachiyo-website-scraper.cover.out
-```
+This project is licensed under the terms in [LICENSE](LICENSE).

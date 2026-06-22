@@ -1,29 +1,41 @@
-# Documentation Index
+# Documentation
 
 This directory contains the detailed documentation for
-`yachiyo-website-scraper`. The root [README](../README.md) stays short and links
-here as the single documentation entry point.
+`yachiyo-website-scraper`. The root [README](../README.md) is intentionally
+short; use this page to choose the next document based on what you are doing.
 
-## Recommended Reading Order
+## Choose a Guide
 
-1. [Usage Guide](usage.md) - build the binary, run commands, select configs, and
-   understand JSON output.
-2. [Task Reference](tasks.md) - supported sites, unified task names, parameters,
-   and response shapes.
-3. [Runtime Fetching](runtime-fetching.md) - cookies, challenge modes,
-   FlareSolverr, timeouts, and site-specific runtime notes.
-4. [YAML Configuration](configuration.md) - the config model for requests,
-   extraction, pagination, output formatting, and indexes.
-5. [Site Adapter Guide](site-adapters.md) - how to add or maintain a site config
-   while preserving the unified task contract.
-6. [Development Guide](development.md) - project layout, tests, coverage,
-   release builds, and documentation maintenance.
+New users should start with the [Usage Guide](usage.md). It covers building the
+binary, selecting configs, running tasks, reading JSON output, dumping HTML, and
+using index commands.
 
-## Direct Links
+When you need task names, supported sites, parameters, or response shapes, read
+the [Task Reference](tasks.md). It defines the public contract that site
+adapters should preserve.
 
-- [Usage Guide](usage.md)
-- [Task Reference](tasks.md)
-- [Runtime Fetching](runtime-fetching.md)
-- [YAML Configuration](configuration.md)
-- [Site Adapter Guide](site-adapters.md)
-- [Development Guide](development.md)
+When a site needs cookies, anti-bot detection, FlareSolverr, custom timeouts, or
+HTML dumps, read [Runtime Fetching](runtime-fetching.md).
+
+When editing YAML files under `configs/`, read
+[YAML Configuration](configuration.md). It explains defaults, parameters,
+requests, extraction fields, pagination, output formatting, templates, and
+indexes.
+
+When adding or maintaining a site adapter, read the
+[Site Adapter Guide](site-adapters.md). It turns the config model into a
+practical workflow and links back to the task contract.
+
+When changing Go code, tests, release behavior, or documentation structure, read
+the [Development Guide](development.md).
+
+## Suggested Flow
+
+```text
+Usage Guide
+  -> Task Reference
+  -> Runtime Fetching
+  -> YAML Configuration
+  -> Site Adapter Guide
+  -> Development Guide
+```
