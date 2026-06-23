@@ -57,6 +57,20 @@ func TestLoadBuiltinSite(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertActorImageEnhancement(t, task, "actors")
+
+	cfg, err = config.Load("sehuatang")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Site.ID != "sehuatang" {
+		t.Fatalf("unexpected site id: %s", cfg.Site.ID)
+	}
+	if _, err := cfg.Task("forum_threads"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cfg.Task("thread_detail"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func assertActorImageEnhancement(t *testing.T, task config.Task, itemsKey string) {
@@ -85,6 +99,9 @@ func TestBuiltinSites(t *testing.T) {
 	}
 	if !slices.Contains(sites, "javbus") {
 		t.Fatalf("expected javbus in builtin sites, got %#v", sites)
+	}
+	if !slices.Contains(sites, "sehuatang") {
+		t.Fatalf("expected sehuatang in builtin sites, got %#v", sites)
 	}
 }
 

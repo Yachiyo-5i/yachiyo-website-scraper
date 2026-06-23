@@ -1,0 +1,343 @@
+site:
+  id: sehuatang
+  base_url: https://www.sehuatang.org
+
+defaults:
+  autoclick:
+    xpath: "/html/body/a[1][contains(concat(' ', normalize-space(@class), ' '), ' enter-btn ')]"
+  headers:
+    User-Agent: Mozilla/5.0
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+    Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+
+indexes:
+  categories:
+    match_field: name
+    value_field: fid
+    items:
+      - name: "国产原创"
+        section: "原创BT电影"
+        forum: "国产原创"
+        level: "forum"
+        fid: "2"
+      - name: "亚洲无码原创"
+        section: "原创BT电影"
+        forum: "亚洲无码原创"
+        level: "forum"
+        fid: "36"
+      - name: "亚洲有码原创"
+        section: "原创BT电影"
+        forum: "亚洲有码原创"
+        level: "forum"
+        fid: "37"
+      - name: "高清中文字幕"
+        section: "原创BT电影"
+        forum: "高清中文字幕"
+        level: "forum"
+        fid: "103"
+      - name: "三级写真"
+        section: "原创BT电影"
+        forum: "三级写真"
+        level: "forum"
+        fid: "107"
+      - name: "VR视频区"
+        section: "原创BT电影"
+        forum: "VR视频区"
+        level: "forum"
+        fid: "160"
+      - name: "素人有码系列"
+        section: "原创BT电影"
+        forum: "素人有码系列"
+        level: "forum"
+        fid: "104"
+      - name: "欧美无码"
+        section: "原创BT电影"
+        forum: "欧美无码"
+        level: "forum"
+        fid: "38"
+      - name: "4K原版"
+        section: "原创BT电影"
+        forum: "4K原版"
+        level: "forum"
+        fid: "151"
+      - name: "韩国主播"
+        section: "原创BT电影"
+        forum: "韩国主播"
+        level: "forum"
+        fid: "152"
+      - name: "动漫原创"
+        section: "原创BT电影"
+        forum: "动漫原创"
+        level: "forum"
+        fid: "39"
+
+tasks:
+  forum_threads:
+    params:
+      category:
+        required: true
+      page:
+        default: "1"
+
+    resolve_params:
+      fid:
+        index: categories
+        from: category
+        value_field: fid
+      filter:
+        index: categories
+        from: category
+        value_field: filter
+        optional: true
+      typeid:
+        index: categories
+        from: category
+        value_field: typeid
+        optional: true
+
+    request:
+      method: GET
+      path: /forum.php
+      omit_empty_query: true
+      query:
+        mod: forumdisplay
+        fid: "{fid}"
+        filter: "{filter}"
+        typeid: "{typeid}"
+        page: "{page}"
+
+    extract:
+      meta:
+        total_pages:
+          xpath: "(//div[contains(concat(' ', normalize-space(@class), ' '), ' pg ')]//a[contains(concat(' ', normalize-space(@class), ' '), ' last ')])[1]"
+          attr: href
+          regex: "(?:forum-[0-9]+-|page=)([0-9]+)"
+          type: int
+        next_page:
+          xpath: "(//div[contains(concat(' ', normalize-space(@class), ' '), ' pg ')]//a[contains(concat(' ', normalize-space(@class), ' '), ' nxt ')])[1]"
+          attr: href
+          regex: "(?:forum-[0-9]+-|page=)([0-9]+)"
+          type: int
+      page:
+        category:
+          xpath: "//div[@id='pt']//a[last()]"
+          attr: text
+          trim: true
+        title:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' bm_h ')]//h1/a"
+          attr: text
+          trim: true
+        today_count:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' bm_h ')]//h1/span[contains(concat(' ', normalize-space(@class), ' '), ' xs1 ')]"
+          attr: text
+          regex: "今日:\\s*([0-9]+)"
+          type: int
+        thread_total:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' bm_h ')]//h1/span[contains(concat(' ', normalize-space(@class), ' '), ' xs1 ')]"
+          attr: text
+          regex: "主题:\\s*([0-9]+)"
+          type: int
+      scope:
+        xpath: "//tbody[starts-with(@id, 'normalthread_')]/tr"
+      fields:
+        tid:
+          xpath: ".."
+          attr: id
+          regex: "normalthread_([0-9]+)"
+          on_missing: skip_item
+        type:
+          xpath: ".//th/em/a"
+          attr: text
+          trim: true
+        title:
+          xpath: ".//a[contains(concat(' ', normalize-space(@class), ' '), ' xst ')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: ".//a[contains(concat(' ', normalize-space(@class), ' '), ' xst ')]"
+          attr: href
+          resolve_url: true
+        author:
+          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[1]//cite/a"
+          attr: text
+          trim: true
+        author_url:
+          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[1]//cite/a"
+          attr: href
+          resolve_url: true
+        posted_at:
+          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[1]//em//span[@title]"
+          attr: title
+          trim: true
+        replies:
+          xpath: ".//td[contains(concat(' ', normalize-space(@class), ' '), ' num ')]/a"
+          attr: text
+          trim: true
+          type: int
+        views:
+          xpath: ".//td[contains(concat(' ', normalize-space(@class), ' '), ' num ')]/em"
+          attr: text
+          trim: true
+          type: int
+        last_reply_author:
+          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[last()]//cite/a"
+          attr: text
+          trim: true
+        last_reply_at:
+          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[last()]//em//span[@title]"
+          attr: title
+          trim: true
+
+    pagination:
+      param: page
+      default: "1"
+      total_field: total_pages
+
+    output:
+      type: object
+      items_key: threads
+      page_format:
+        category: "{category}"
+        title: "{title}"
+        today_count: "{today_count}"
+        thread_total: "{thread_total}"
+      format:
+        source_id: "{tid}"
+        tid: "{tid}"
+        type: "{type}"
+        title: "{title}"
+        url: "{url}"
+        author: "{author}"
+        author_url: "{author_url}"
+        posted_at: "{posted_at}"
+        replies: "{replies}"
+        views: "{views}"
+        last_reply_author: "{last_reply_author}"
+        last_reply_at: "{last_reply_at}"
+
+  thread_detail:
+    params:
+      tid:
+        required: true
+        regex: "(?:thread-)?([0-9]+)"
+      page:
+        default: "1"
+
+    request:
+      method: GET
+      path: /forum.php
+      query:
+        mod: viewthread
+        tid: "{tid}"
+        page: "{page}"
+
+    extract:
+      meta:
+        total_pages:
+          xpath: "(//div[contains(concat(' ', normalize-space(@class), ' '), ' pg ')]//a[contains(concat(' ', normalize-space(@class), ' '), ' last ')])[1]"
+          attr: href
+          regex: "thread-[0-9]+-([0-9]+)-|page=([0-9]+)"
+          type: int
+        next_page:
+          xpath: "(//div[contains(concat(' ', normalize-space(@class), ' '), ' pg ')]//a[contains(concat(' ', normalize-space(@class), ' '), ' nxt ')])[1]"
+          attr: href
+          regex: "thread-[0-9]+-([0-9]+)-|page=([0-9]+)"
+          type: int
+      fields:
+        pid:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]"
+          attr: id
+          regex: "post_([0-9]+)"
+          on_missing: skip_item
+        tid:
+          xpath: "//a[contains(@href, 'action=printable') and contains(@href, 'tid=')]"
+          attr: href
+          regex: "tid=([0-9]+)"
+          on_missing: skip_item
+        category:
+          xpath: "//h1[contains(concat(' ', normalize-space(@class), ' '), ' ts ')]/a"
+          attr: text
+          trim: true
+          regex: "\\[([^\\]]+)\\]"
+        title:
+          xpath: "//span[@id='thread_subject']"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        author:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//td[contains(concat(' ', normalize-space(@class), ' '), ' pls ')]//div[contains(concat(' ', normalize-space(@class), ' '), ' authi ')]/a[contains(concat(' ', normalize-space(@class), ' '), ' xw1 ')]"
+          attr: text
+          trim: true
+        author_url:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//td[contains(concat(' ', normalize-space(@class), ' '), ' pls ')]//div[contains(concat(' ', normalize-space(@class), ' '), ' authi ')]/a[contains(concat(' ', normalize-space(@class), ' '), ' xw1 ')]"
+          attr: href
+          resolve_url: true
+        posted_at:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//em[starts-with(@id, 'authorposton')]//span[@title]"
+          attr: title
+          trim: true
+        content_text:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//td[contains(concat(' ', normalize-space(@class), ' '), ' t_f ')]"
+          attr: text
+          trim: true
+        content_html:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//td[contains(concat(' ', normalize-space(@class), ' '), ' t_f ')]"
+          attr: html
+          trim: true
+        preview_images:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//td[contains(concat(' ', normalize-space(@class), ' '), ' t_f ')]//img[@file or @zoomfile]"
+          attr: file
+          resolve_url: true
+          multiple: true
+        magnet_links:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//td[contains(concat(' ', normalize-space(@class), ' '), ' t_f ')]"
+          attr: outer_html
+          regex: "(magnet:\\?xt=urn:btih:[A-Fa-f0-9]+)"
+          multiple: true
+        attachment_names:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//div[contains(concat(' ', normalize-space(@class), ' '), ' pattl ')]//p[contains(concat(' ', normalize-space(@class), ' '), ' attnm ')]/a"
+          attr: text
+          trim: true
+          multiple: true
+        attachment_urls:
+          xpath: "(//div[@id='postlist']//div[starts-with(@id, 'post_')])[1]//div[contains(concat(' ', normalize-space(@class), ' '), ' pattl ')]//p[contains(concat(' ', normalize-space(@class), ' '), ' attnm ')]/a"
+          attr: href
+          resolve_url: true
+          multiple: true
+        views:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' hm ')]/span[contains(., '查看:')]/following-sibling::span[contains(concat(' ', normalize-space(@class), ' '), ' xi1 ')][1]"
+          attr: text
+          trim: true
+          type: int
+        replies:
+          xpath: "//div[contains(concat(' ', normalize-space(@class), ' '), ' hm ')]/span[contains(., '回复:')]/following-sibling::span[contains(concat(' ', normalize-space(@class), ' '), ' xi1 ')][1]"
+          attr: text
+          trim: true
+          type: int
+
+    pagination:
+      param: page
+      default: "1"
+      total_field: total_pages
+
+    output:
+      type: object
+      format:
+        source_id: "{tid}"
+        tid: "{tid}"
+        pid: "{pid}"
+        category: "{category}"
+        title: "{title}"
+        url: "https://www.sehuatang.org/thread-{tid}-1-1.html"
+        author: "{author}"
+        author_url: "{author_url}"
+        posted_at: "{posted_at}"
+        views: "{views}"
+        replies: "{replies}"
+        content_text: "{content_text}"
+        content_html: "{content_html}"
+        preview_images: "{preview_images}"
+        magnet_links: "{magnet_links}"
+        attachment_names: "{attachment_names}"
+        attachment_urls: "{attachment_urls}"
