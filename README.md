@@ -4,20 +4,23 @@ Yachiyo Website Scraper is a Go CLI for config-driven static HTML scraping.
 
 The scraper engine is generic: request rules, XPath selectors, regex cleanup,
 pagination metadata, default non-account cookies, and output fields are defined
-in YAML. Runtime fetch behavior, including Cloudflare challenge handling and
-FlareSolverr, is selected with CLI flags or environment variables.
+in YAML. Runtime fetch behavior, including Cloudflare challenge handling,
+FlareSolverr, and Playwright browser fetching, is selected with CLI flags or
+environment variables.
 
 ## Site Support
 
 Bundled site configs are embedded into the binary and can be selected with
 `-config`.
 
-| Capability | Task | AVBase | JavBus | JavLibrary | FC2 |
-| --- | --- | --- | --- | --- | --- |
-| Work search or work list | `search_work` | Yes | Yes | Yes | Yes |
-| Work detail | `work_detail` | Yes | Yes | Yes | Yes |
-| Actor detail and actor works | `actor_detail` | Yes | Yes | No | No |
-| Actor candidate search | `actor_search` | No | Yes | No | No |
+| Capability | Task | AVBase | JavBus | JavLibrary | FC2 | Sehuatang |
+| --- | --- | --- | --- | --- | --- | --- |
+| Work search or work list | `search_work` | Yes | Yes | Yes | Yes | No |
+| Work detail | `work_detail` | Yes | Yes | Yes | Yes | No |
+| Actor detail and actor works | `actor_detail` | Yes | Yes | No | No | No |
+| Actor candidate search | `actor_search` | No | Yes | No | No | No |
+| Forum thread list | `forum_threads` | No | No | No | No | Yes |
+| Forum thread detail | `thread_detail` | No | No | No | No | Yes |
 
 Pagination is single-page only. The CLI requests the page you pass with
 `-param page=...` and returns that page's data.
@@ -58,6 +61,9 @@ For sites that need challenge bypassing:
   -challenge bypass \
   -flaresolverr http://127.0.0.1:8191
 ```
+
+Browser-backed fetching can use the optional helper under
+`tools/playwright-fetcher/`.
 
 ## Documentation
 

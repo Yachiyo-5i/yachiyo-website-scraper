@@ -31,6 +31,8 @@ site:
   base_url: https://example.test
 
 defaults:
+  autoclick:
+    xpath: "//a[contains(@class, 'enter-btn')]"
   cookie: "age=verified"
   headers:
     User-Agent: Mozilla/5.0
@@ -41,6 +43,12 @@ indexes:
     items_key: actors
     match_field: name
     value_field: id
+  categories:
+    match_field: name
+    value_field: fid
+    items:
+      - name: Example Category
+        fid: "123"
 
 tasks:
   search_work:
@@ -67,6 +75,11 @@ defaults:
 `defaults.cookie` is used only when no runtime cookie is passed by `-cookie` or
 `SCRAPER_COOKIE`.
 
+`defaults.autoclick.xpath` is used by the Playwright fetch service. After the
+page opens, the fetcher checks whether the XPath matches a visible element. If
+it does, the fetcher clicks it once, waits for the page to settle, and then
+returns the HTML for extraction.
+
 ## Task Parameters
 
 Task parameters declare required values, defaults, and optional regex
@@ -88,8 +101,9 @@ capture group, group 1 is used.
 
 ## Indexed Parameter Resolution
 
-Use `resolve_params` when a public parameter needs to be translated through a
-local JSON index:
+Use `resolve_params` when a public parameter needs to be translated through an
+index. Indexes can point at a local JSON file or define `items` inline in the
+YAML config:
 
 ```yaml
 indexes:
@@ -98,6 +112,16 @@ indexes:
     items_key: actors
     match_field: name
     value_field: id
+  categories:
+    match_field: name
+    value_field: fid
+    items:
+      - name: 高清中文字幕
+        fid: "103"
+      - name: 有码高清
+        fid: "103"
+        filter: typeid
+        typeid: "480"
 
 tasks:
   actor_detail:
@@ -124,6 +148,8 @@ request:
   query:
     page: "{page}"
   accept_status: [404]
+  autoclick:
+    xpath: "//button[contains(@class, 'confirm')]"
 ```
 
 Use `url` for a full URL template, or `path` for a path resolved against
@@ -131,6 +157,9 @@ Use `url` for a full URL template, or `path` for a path resolved against
 
 `accept_status` is optional. Use it when a site returns a meaningful HTML page
 with a non-2xx status, such as an empty search result page.
+
+`request.autoclick` overrides `defaults.autoclick` for a single task. It is
+ignored unless the runtime uses the Playwright fetch service.
 
 ## Extraction
 
