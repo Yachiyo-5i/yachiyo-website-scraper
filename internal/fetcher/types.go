@@ -18,6 +18,7 @@ type Channel string
 const (
 	ChannelHTTP        Channel = "http"
 	ChannelFlareSolver Channel = "flaresolverr"
+	ChannelPlaywright  Channel = "playwright"
 )
 
 type RuntimeOptions struct {
@@ -26,7 +27,14 @@ type RuntimeOptions struct {
 	Challenge        ChallengeMode
 	FlareSolverrURL  string
 	FlareSolverrWait time.Duration
+	PlaywrightURL    string
+	PlaywrightWait   time.Duration
+	Autoclick        *AutoclickConfig
 	Debug            bool
+}
+
+type AutoclickConfig struct {
+	XPath string `json:"xpath,omitempty"`
 }
 
 type Request struct {
@@ -54,5 +62,6 @@ func DefaultRuntimeOptions() RuntimeOptions {
 		Timeout:          30 * time.Second,
 		Challenge:        ChallengeDetect,
 		FlareSolverrWait: 60 * time.Second,
+		PlaywrightWait:   60 * time.Second,
 	}
 }

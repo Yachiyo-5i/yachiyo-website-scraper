@@ -264,6 +264,71 @@ tasks:
 	}
 }
 
+func TestRunCommandUsesPlaywrightService(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "cloudflare")
+		w.Header().Set("cf-mitigated", "challenge")
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("<html><title>Just a moment...</title>Enable JavaScript and cookies to continue</html>"))
+	}))
+	defer target.Close()
+
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload["url"] != target.URL+"/detail" {
+			t.Fatalf("unexpected Playwright URL: %#v", payload)
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":    http.StatusOK,
+			"final_url": target.URL + "/detail",
+			"body":      `<html><body><h1>Playwright OK</h1></body></html>`,
+		})
+	}))
+	defer playwright.Close()
+
+	configPath := writeCLIConfig(t, strings.ReplaceAll(`
+site:
+  id: local
+  base_url: __BASE__
+tasks:
+  detail:
+    request:
+      path: /detail
+    extract:
+      fields:
+        title:
+          xpath: //h1
+          attr: text
+    output:
+      type: object
+      format:
+        title: "{title}"
+`, "__BASE__", target.URL))
+
+	stdout, _, err := captureCommandOutput(t, func() error {
+		return run([]string{
+			"-config", configPath,
+			"-task", "detail",
+			"-challenge", "bypass",
+			"-playwright", playwright.URL,
+			"-playwright-timeout", "1s",
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("run should print JSON, got %q: %v", stdout, err)
+	}
+	if result["ok"] != true || result["channel"] != string(fetcher.ChannelPlaywright) {
+		t.Fatalf("unexpected Playwright run result: %#v", result)
+	}
+}
+
 func TestRunCommandReportsFlagAndConfigErrors(t *testing.T) {
 	tests := []struct {
 		name string

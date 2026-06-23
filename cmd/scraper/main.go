@@ -98,8 +98,10 @@ func run(args []string) error {
 	cookie := fs.String("cookie", os.Getenv("SCRAPER_COOKIE"), "cookie header value")
 	challenge := fs.String("challenge", envDefault("SCRAPER_CHALLENGE", "detect"), "challenge handling: detect, bypass, off")
 	flaresolverrURL := fs.String("flaresolverr", os.Getenv("SCRAPER_FLARESOLVERR_URL"), "FlareSolverr base URL")
+	playwrightURL := fs.String("playwright", os.Getenv("SCRAPER_PLAYWRIGHT_URL"), "Playwright fetch service base URL")
 	timeout := fs.Duration("timeout", envDuration("SCRAPER_TIMEOUT", 30*time.Second), "HTTP timeout")
 	flaresolverrTimeout := fs.Duration("flaresolverr-timeout", envDuration("SCRAPER_FLARESOLVERR_TIMEOUT", 60*time.Second), "FlareSolverr timeout")
+	playwrightTimeout := fs.Duration("playwright-timeout", envDuration("SCRAPER_PLAYWRIGHT_TIMEOUT", 60*time.Second), "Playwright fetch timeout")
 	dumpHTML := fs.String("dump-html", "", "write fetched HTML to this path before extraction")
 
 	if err := fs.Parse(args); err != nil {
@@ -135,6 +137,8 @@ func run(args []string) error {
 			Challenge:        mode,
 			FlareSolverrURL:  *flaresolverrURL,
 			FlareSolverrWait: *flaresolverrTimeout,
+			PlaywrightURL:    *playwrightURL,
+			PlaywrightWait:   *playwrightTimeout,
 		},
 	})
 	if err != nil {
@@ -290,8 +294,10 @@ func indexBuild(args []string) error {
 	cookie := fs.String("cookie", os.Getenv("SCRAPER_COOKIE"), "cookie header value")
 	challenge := fs.String("challenge", envDefault("SCRAPER_CHALLENGE", "detect"), "challenge handling: detect, bypass, off")
 	flaresolverrURL := fs.String("flaresolverr", os.Getenv("SCRAPER_FLARESOLVERR_URL"), "FlareSolverr base URL")
+	playwrightURL := fs.String("playwright", os.Getenv("SCRAPER_PLAYWRIGHT_URL"), "Playwright fetch service base URL")
 	timeout := fs.Duration("timeout", envDuration("SCRAPER_TIMEOUT", 30*time.Second), "HTTP timeout")
 	flaresolverrTimeout := fs.Duration("flaresolverr-timeout", envDuration("SCRAPER_FLARESOLVERR_TIMEOUT", 60*time.Second), "FlareSolverr timeout")
+	playwrightTimeout := fs.Duration("playwright-timeout", envDuration("SCRAPER_PLAYWRIGHT_TIMEOUT", 60*time.Second), "Playwright fetch timeout")
 	pretty := fs.Bool("pretty", false, "write pretty-printed JSON instead of compact JSON")
 
 	if err := fs.Parse(args); err != nil {
@@ -335,6 +341,8 @@ func indexBuild(args []string) error {
 		Challenge:        mode,
 		FlareSolverrURL:  *flaresolverrURL,
 		FlareSolverrWait: *flaresolverrTimeout,
+		PlaywrightURL:    *playwrightURL,
+		PlaywrightWait:   *playwrightTimeout,
 	}
 
 	ctx := context.Background()
@@ -643,9 +651,10 @@ func mergeIndexPages(pages map[int][]map[string]interface{}) []map[string]interf
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `usage:
-  scraper run -config avbase -task search_work -param code=PRED-886 [--cookie "..."] [--challenge detect|bypass|off] [--flaresolverr URL] [--dump-html debug.html]
+  scraper run -config avbase -task search_work -param code=PRED-886 [--cookie "..."] [--challenge detect|bypass|off] [--flaresolverr URL] [--playwright URL] [--dump-html debug.html]
   scraper index build -config javbus -task actor_list -out indexes/javbus_actors.json
   scraper index lookup -config javbus -index actors -name 仲村みう
+  scraper categories -config sehuatang
   scraper validate -config avbase
   scraper tasks -config avbase
   scraper sites

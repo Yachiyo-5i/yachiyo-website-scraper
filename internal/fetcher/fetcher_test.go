@@ -22,6 +22,9 @@ func TestDefaultRuntimeOptions(t *testing.T) {
 	if opts.FlareSolverrWait != 60*time.Second {
 		t.Fatalf("unexpected default FlareSolverr wait: %s", opts.FlareSolverrWait)
 	}
+	if opts.PlaywrightWait != 60*time.Second {
+		t.Fatalf("unexpected Playwright wait: %s", opts.PlaywrightWait)
+	}
 }
 
 func TestFetchHTTPAppliesHeadersCookieAndDecodesBody(t *testing.T) {
@@ -236,6 +239,88 @@ func TestFetchBypassReturnsFlareSolverrErrorWithChallengeContext(t *testing.T) {
 	}
 }
 
+func TestFetchUsesPlaywrightWhenURLIsProvided(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("ordinary HTTP fetch should be skipped when Playwright URL is provided")
+	}))
+	defer target.Close()
+
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/fetch" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		var payload playwrightRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.URL != target.URL || payload.Method != http.MethodGet {
+			t.Fatalf("unexpected Playwright payload: %+v", payload)
+		}
+		if payload.Cookies != "a=1" {
+			t.Fatalf("unexpected Playwright cookies: %q", payload.Cookies)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(playwrightResponse{
+			Status:   http.StatusOK,
+			FinalURL: target.URL + "/solved",
+			Body:     "<html>solved</html>",
+		})
+	}))
+	defer playwright.Close()
+
+	result, err := Fetch(context.Background(), Request{
+		Method: http.MethodGet,
+		URL:    target.URL,
+	}, RuntimeOptions{
+		Timeout:        time.Second,
+		Challenge:      ChallengeBypass,
+		PlaywrightURL:  playwright.URL,
+		PlaywrightWait: time.Second,
+		Cookie:         "a=1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Challenge.Detected {
+		t.Fatalf("expected Playwright response to be challenge-free, got %+v", result.Challenge)
+	}
+	if result.Response.Channel != ChannelPlaywright || result.Response.Body != "<html>solved</html>" {
+		t.Fatalf("unexpected Playwright response: %+v", result.Response)
+	}
+}
+
+func TestFetchUsesPlaywrightDirectlyWhenURLIsProvided(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("ordinary HTTP fetch should be skipped when Playwright URL is provided")
+	}))
+	defer target.Close()
+
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(playwrightResponse{
+			Status:   http.StatusOK,
+			FinalURL: target.URL + "/final",
+			Body:     "<html>browser body</html>",
+		})
+	}))
+	defer playwright.Close()
+
+	result, err := Fetch(context.Background(), Request{
+		Method: http.MethodGet,
+		URL:    target.URL,
+	}, RuntimeOptions{
+		Timeout:        time.Second,
+		Challenge:      ChallengeDetect,
+		PlaywrightURL:  playwright.URL,
+		PlaywrightWait: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Response.Channel != ChannelPlaywright || result.Response.Body != "<html>browser body</html>" {
+		t.Fatalf("unexpected Playwright direct response: %+v", result.Response)
+	}
+}
+
 func TestFetchFlareSolverrSendsExpectedPayloadAndParsesSolution(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1" {
@@ -375,6 +460,126 @@ func TestFetchFlareSolverrRequiresURL(t *testing.T) {
 		t.Fatal("expected missing URL error")
 	}
 	if !strings.Contains(err.Error(), "flaresolverr url is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFetchPlaywrightSendsExpectedPayloadAndParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/fetch" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		var payload playwrightRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.URL != "https://example.test/page" || payload.Method != http.MethodPost {
+			t.Fatalf("unexpected payload: %+v", payload)
+		}
+		if payload.Timeout != 1500 {
+			t.Fatalf("unexpected timeout: %d", payload.Timeout)
+		}
+		if payload.Cookies != "a=1; b=2" {
+			t.Fatalf("unexpected cookies: %q", payload.Cookies)
+		}
+		if payload.Autoclick == nil || payload.Autoclick.XPath != "//button[contains(@class, 'confirm')]" {
+			t.Fatalf("unexpected autoclick: %#v", payload.Autoclick)
+		}
+		if got := payload.Headers["X-Test"]; got != "yes" {
+			t.Fatalf("unexpected headers: %#v", payload.Headers)
+		}
+		json.NewEncoder(w).Encode(playwrightResponse{
+			Status:   http.StatusAccepted,
+			FinalURL: "https://example.test/final",
+			Body:     "<html>ok</html>",
+			Headers:  map[string]string{"Content-Type": "text/html"},
+		})
+	}))
+	defer server.Close()
+
+	resp, err := FetchPlaywright(context.Background(), Request{
+		Method: http.MethodPost,
+		URL:    "https://example.test/page",
+		Headers: map[string]string{
+			"X-Test": "yes",
+		},
+	}, RuntimeOptions{
+		PlaywrightURL:  server.URL + "/",
+		PlaywrightWait: 1500 * time.Millisecond,
+		Cookie:         "a=1; b=2",
+		Autoclick:      &AutoclickConfig{XPath: "//button[contains(@class, 'confirm')]"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != http.StatusAccepted || resp.FinalURL != "https://example.test/final" || resp.Body != "<html>ok</html>" {
+		t.Fatalf("unexpected Playwright response: %+v", resp)
+	}
+	if resp.Channel != ChannelPlaywright {
+		t.Fatalf("unexpected channel: %s", resp.Channel)
+	}
+	if resp.Headers.Get("Content-Type") != "text/html" {
+		t.Fatalf("unexpected response headers: %#v", resp.Headers)
+	}
+}
+
+func TestFetchPlaywrightReportsErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		status  int
+		body    string
+		wantErr string
+	}{
+		{
+			name:    "non-200",
+			status:  http.StatusBadGateway,
+			body:    "bad gateway",
+			wantErr: "HTTP 502",
+		},
+		{
+			name:    "invalid json",
+			status:  http.StatusOK,
+			body:    "{",
+			wantErr: "unexpected end",
+		},
+		{
+			name:    "service error",
+			status:  http.StatusOK,
+			body:    `{"error":"blocked"}`,
+			wantErr: "blocked",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.status)
+				w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			_, err := FetchPlaywright(context.Background(), Request{
+				URL: "https://example.test/page",
+			}, RuntimeOptions{
+				PlaywrightURL:  server.URL,
+				PlaywrightWait: time.Second,
+			})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestFetchPlaywrightRequiresURL(t *testing.T) {
+	_, err := FetchPlaywright(context.Background(), Request{URL: "https://example.test"}, RuntimeOptions{})
+	if err == nil {
+		t.Fatal("expected missing URL error")
+	}
+	if !strings.Contains(err.Error(), "playwright url is required") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

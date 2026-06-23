@@ -11,6 +11,18 @@ type Result struct {
 }
 
 func Fetch(ctx context.Context, req Request, opts RuntimeOptions) (*Result, error) {
+	if opts.PlaywrightURL != "" {
+		resp, err := FetchPlaywright(ctx, req, opts)
+		if err != nil {
+			return nil, err
+		}
+		if opts.Challenge == ChallengeOff {
+			return &Result{Response: resp}, nil
+		}
+		challenge := DetectChallenge(resp.Status, resp.Headers, resp.Body)
+		return &Result{Response: resp, Challenge: challenge}, nil
+	}
+
 	if opts.Challenge == ChallengeOff {
 		resp, err := FetchHTTP(ctx, req, opts)
 		if err != nil {
