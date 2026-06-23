@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.2.0...v1.3.0) (2026-06-23)
+
+
+### Features
+
+* 🎸 add autoclick runtime support ([69fb6fc](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/69fb6fc236aaba0a9ee4289ddfdee69aaf1e527e))
+* 🎸 add inline category indexes ([1c9ccbc](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/1c9ccbc2dd77eab64c4ce1b3d1197ffc8938b433))
+* 🎸 add playwright fetch support ([8e99478](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/8e99478d0903e05361276d8a472754b59b30c37f))
+* 🎸 add playwright fetcher tool ([19983c7](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/19983c7dbcd34848a060b8d1ac705a6812fce20f))
+* 🎸 add sehuatang site config ([506cd56](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/506cd568908b5197aa41ee6c474c06f469e6b1df))
+
 ## [1.2.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.1.0...v1.2.0) (2026-06-22)
 
 
