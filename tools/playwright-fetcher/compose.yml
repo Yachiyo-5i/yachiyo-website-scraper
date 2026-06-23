@@ -1,0 +1,15 @@
+services:
+  playwright-fetcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: yachiyo-playwright-fetcher:local
+    container_name: yachiyo-playwright-fetcher
+    init: true
+    shm_size: "2gb"
+    ports:
+      - "127.0.0.1:3011:3001"
+    environment:
+      PORT: "3001"
+      PLAYWRIGHT_TIMEOUT: "60000"
+    restart: unless-stopped
