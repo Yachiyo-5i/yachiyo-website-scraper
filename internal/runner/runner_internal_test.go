@@ -183,6 +183,35 @@ func TestResolveIndexedParams(t *testing.T) {
 	}
 }
 
+func TestResolveIndexedParamsUsesInlineItems(t *testing.T) {
+	cfg := &config.Config{
+		Indexes: map[string]config.Index{
+			"categories": {
+				Items: []map[string]interface{}{
+					{"name": "有码高清", "fid": "103", "filter": "typeid", "typeid": "480"},
+				},
+				MatchField: "name",
+				ValueField: "fid",
+			},
+		},
+	}
+	task := config.Task{
+		ResolveParams: map[string]config.ParamResolver{
+			"fid":    {Index: "categories", From: "category"},
+			"filter": {Index: "categories", From: "category", ValueField: "filter", Optional: true},
+			"typeid": {Index: "categories", From: "category", ValueField: "typeid", Optional: true},
+		},
+	}
+
+	vars := map[string]string{"category": "有码高清"}
+	if err := resolveIndexedParams(cfg, task, vars); err != nil {
+		t.Fatal(err)
+	}
+	if vars["fid"] != "103" || vars["filter"] != "typeid" || vars["typeid"] != "480" {
+		t.Fatalf("unexpected resolved inline category params: %#v", vars)
+	}
+}
+
 func TestResolveIndexedParamsReportsErrors(t *testing.T) {
 	indexPath := writeRunnerIndex(t, `{
   "actors": [
@@ -262,6 +291,22 @@ func TestBuildURL(t *testing.T) {
 	}
 	if got != "https://absolute.test/ABC-123" {
 		t.Fatalf("unexpected absolute URL: %q", got)
+	}
+
+	got, err = buildURL("https://example.test", config.RequestConfig{
+		Path:           "/forum.php",
+		OmitEmptyQuery: true,
+		Query: map[string]string{
+			"fid":    "{fid}",
+			"filter": "{filter}",
+			"typeid": "{typeid}",
+		},
+	}, map[string]string{"fid": "103"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "https://example.test/forum.php?fid=103" {
+		t.Fatalf("unexpected URL with empty query params omitted: %q", got)
 	}
 }
 

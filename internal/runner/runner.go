@@ -313,15 +313,21 @@ func resolveIndexedParams(cfg *config.Config, task config.Task, vars map[string]
 		matchField := firstNonEmpty(resolver.MatchField, indexCfg.MatchField, resolver.From)
 		valueField := firstNonEmpty(resolver.ValueField, indexCfg.ValueField, target)
 
-		idx, err := indexer.Load(indexCfg.Path, itemsKey)
+		idx, err := loadIndex(indexCfg, itemsKey)
 		if err != nil {
 			return err
 		}
 		resolved, matches, err := indexer.LookupOne(idx, matchField, valueField, sourceValue, indexCfg.CaseSensitive)
 		if err != nil {
+			if resolver.Optional && isMissingOptionalIndexValue(err) {
+				continue
+			}
 			return fmt.Errorf("resolve param %q from %q=%q: %w", target, resolver.From, sourceValue, err)
 		}
 		if resolved == "" {
+			if resolver.Optional {
+				continue
+			}
 			return fmt.Errorf("resolve param %q from %q=%q: no match in index %q", target, resolver.From, sourceValue, resolver.Index)
 		}
 		if len(matches) > 0 {
@@ -329,6 +335,17 @@ func resolveIndexedParams(cfg *config.Config, task config.Task, vars map[string]
 		}
 	}
 	return nil
+}
+
+func loadIndex(indexCfg config.Index, itemsKey string) (*indexer.Index, error) {
+	if len(indexCfg.Items) > 0 {
+		return indexer.FromItems(indexCfg.Items, itemsKey), nil
+	}
+	return indexer.Load(indexCfg.Path, itemsKey)
+}
+
+func isMissingOptionalIndexValue(err error) bool {
+	return strings.Contains(err.Error(), "none contains value field")
 }
 
 func buildURL(baseURL string, req config.RequestConfig, vars map[string]string) (string, error) {
@@ -351,14 +368,33 @@ func buildURL(baseURL string, req config.RequestConfig, vars map[string]string) 
 	finalURL := base.ResolveReference(rel)
 	query := finalURL.Query()
 	for key, valueTemplate := range req.Query {
-		value, err := templatex.Render(valueTemplate, vars)
+		value, err := renderQueryValue(valueTemplate, vars, req.OmitEmptyQuery)
 		if err != nil {
 			return "", err
+		}
+		if req.OmitEmptyQuery && strings.TrimSpace(value) == "" {
+			continue
 		}
 		query.Set(key, value)
 	}
 	finalURL.RawQuery = query.Encode()
 	return finalURL.String(), nil
+}
+
+func renderQueryValue(valueTemplate string, vars map[string]string, allowMissing bool) (string, error) {
+	if !allowMissing {
+		return templatex.Render(valueTemplate, vars)
+	}
+	missingAsEmpty := make(map[string]string, len(vars))
+	for k, v := range vars {
+		missingAsEmpty[k] = v
+	}
+	for _, key := range templatex.Placeholders(valueTemplate) {
+		if _, ok := missingAsEmpty[key]; !ok {
+			missingAsEmpty[key] = ""
+		}
+	}
+	return templatex.Render(valueTemplate, missingAsEmpty)
 }
 
 func renderHeaders(headers map[string]string, vars map[string]string) (map[string]string, error) {

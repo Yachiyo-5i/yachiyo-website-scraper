@@ -33,6 +33,14 @@ func TestRenderStringReportsMissingVariables(t *testing.T) {
 	}
 }
 
+func TestPlaceholdersReturnsUniqueTemplateKeys(t *testing.T) {
+	got := Placeholders("/forum.php?fid={fid}&filter={filter}&again={fid}&env={env.TOKEN}")
+	want := []string{"fid", "filter", "env.TOKEN"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected placeholders:\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
 func TestRenderStringReadsEnvironmentVariables(t *testing.T) {
 	t.Setenv("SCRAPER_TEST_TOKEN", "secret-token")
 

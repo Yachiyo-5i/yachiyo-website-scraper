@@ -66,6 +66,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
+	case "categories":
+		if err := categories(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
 	case "sites":
 		if err := sites(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
@@ -196,6 +201,44 @@ func sites(args []string) error {
 	}
 	for _, site := range sites {
 		fmt.Println(site)
+	}
+	return nil
+}
+
+func categories(args []string) error {
+	fs := flag.NewFlagSet("categories", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	configPath := fs.String("config", "", "builtin site name or path to site YAML config")
+	indexName := fs.String("index", "categories", "category index name in config")
+	field := fs.String("field", "name", "category display field")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *configPath == "" {
+		return fmt.Errorf("--config is required")
+	}
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		return err
+	}
+	indexCfg, ok := cfg.Indexes[*indexName]
+	if !ok {
+		return fmt.Errorf("index %q not found", *indexName)
+	}
+	itemsKey := indexCfg.ItemsKey
+	if itemsKey == "" {
+		itemsKey = "items"
+	}
+	idx, err := loadCLIIndex(indexCfg, itemsKey)
+	if err != nil {
+		return err
+	}
+	for _, item := range idx.Items {
+		value := strings.TrimSpace(fmt.Sprint(item[*field]))
+		if value == "" {
+			continue
+		}
+		fmt.Println(value)
 	}
 	return nil
 }
@@ -373,7 +416,7 @@ func indexLookup(args []string) error {
 	if matchField == "" {
 		matchField = "name"
 	}
-	idx, err := indexer.Load(indexCfg.Path, itemsKey)
+	idx, err := loadCLIIndex(indexCfg, itemsKey)
 	if err != nil {
 		return err
 	}
@@ -392,6 +435,13 @@ func indexLookup(args []string) error {
 		os.Exit(3)
 	}
 	return nil
+}
+
+func loadCLIIndex(indexCfg config.Index, itemsKey string) (*indexer.Index, error) {
+	if len(indexCfg.Items) > 0 {
+		return indexer.FromItems(indexCfg.Items, itemsKey), nil
+	}
+	return indexer.Load(indexCfg.Path, itemsKey)
 }
 
 func findLastIndexPage(ctx context.Context, cfg *config.Config, taskName, pageParam string, maxPages int, itemsKey string, runtime fetcher.RuntimeOptions, retries int) (int, error) {

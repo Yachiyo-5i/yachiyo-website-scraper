@@ -46,11 +46,12 @@ type ParamSpec struct {
 }
 
 type Index struct {
-	Path          string `yaml:"path"`
-	ItemsKey      string `yaml:"items_key"`
-	MatchField    string `yaml:"match_field"`
-	ValueField    string `yaml:"value_field"`
-	CaseSensitive bool   `yaml:"case_sensitive"`
+	Path          string                   `yaml:"path"`
+	Items         []map[string]interface{} `yaml:"items"`
+	ItemsKey      string                   `yaml:"items_key"`
+	MatchField    string                   `yaml:"match_field"`
+	ValueField    string                   `yaml:"value_field"`
+	CaseSensitive bool                     `yaml:"case_sensitive"`
 }
 
 type ParamResolver struct {
@@ -58,14 +59,21 @@ type ParamResolver struct {
 	From       string `yaml:"from"`
 	MatchField string `yaml:"match_field"`
 	ValueField string `yaml:"value_field"`
+	Optional   bool   `yaml:"optional"`
 }
 
 type RequestConfig struct {
-	Method       string            `yaml:"method"`
-	URL          string            `yaml:"url"`
-	Path         string            `yaml:"path"`
-	Query        map[string]string `yaml:"query"`
-	AcceptStatus []int             `yaml:"accept_status"`
+	Method         string            `yaml:"method"`
+	URL            string            `yaml:"url"`
+	Path           string            `yaml:"path"`
+	Query          map[string]string `yaml:"query"`
+	OmitEmptyQuery bool              `yaml:"omit_empty_query"`
+	AcceptStatus   []int             `yaml:"accept_status"`
+	Autoclick      *AutoclickConfig  `yaml:"autoclick"`
+}
+
+type AutoclickConfig struct {
+	XPath string `yaml:"xpath"`
 }
 
 type ExtractConfig struct {

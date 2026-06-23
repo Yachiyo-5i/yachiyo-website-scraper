@@ -68,6 +68,15 @@ func Load(path, itemsKey string) (*Index, error) {
 	return idx, nil
 }
 
+func FromItems(items []map[string]interface{}, itemsKey string) *Index {
+	if strings.TrimSpace(itemsKey) == "" {
+		itemsKey = "items"
+	}
+	copied := make([]map[string]interface{}, len(items))
+	copy(copied, items)
+	return &Index{ItemsKey: itemsKey, Items: copied}
+}
+
 func (idx *Index) FindAll(field, value string, caseSensitive bool) []map[string]interface{} {
 	expected := normalize(value, caseSensitive)
 	if expected == "" {

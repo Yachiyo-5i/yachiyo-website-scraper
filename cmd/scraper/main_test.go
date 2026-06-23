@@ -140,6 +140,44 @@ tasks:
 	}
 }
 
+func TestCategoriesCommandSmoke(t *testing.T) {
+	configPath := writeCLIConfig(t, `
+site:
+  id: local
+  base_url: https://example.test
+indexes:
+  categories:
+    match_field: name
+    items:
+      - name: 高清中文字幕
+        fid: "103"
+      - name: 有码高清
+        fid: "103"
+        typeid: "480"
+tasks:
+  detail:
+    request:
+      path: /detail
+    extract:
+      fields:
+        title:
+          xpath: //h1
+    output:
+      format:
+        title: "{title}"
+`)
+
+	stdout, _, err := captureCommandOutput(t, func() error {
+		return categories([]string{"-config", configPath})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "高清中文字幕") || !strings.Contains(stdout, "有码高清") {
+		t.Fatalf("unexpected categories output: %q", stdout)
+	}
+}
+
 func TestUsagePrintsCommandSummary(t *testing.T) {
 	_, stderr, err := captureCommandOutput(t, func() error {
 		usage()

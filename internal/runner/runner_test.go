@@ -298,6 +298,99 @@ tasks:
 	}
 }
 
+func TestRunAllowsOptionalIndexParamWithoutValue(t *testing.T) {
+	indexPath := filepath.Join(t.TempDir(), "categories.json")
+	if err := os.WriteFile(indexPath, []byte(`{
+  "categories": [
+    {
+      "name": "高清中文字幕",
+      "fid": "103"
+    }
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/forum.php" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("fid"); got != "103" {
+			t.Fatalf("unexpected fid: %q", got)
+		}
+		if r.URL.Query().Has("filter") || r.URL.Query().Has("typeid") {
+			t.Fatalf("optional empty params should be omitted, got query %q", r.URL.RawQuery)
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`<html><body><div class="thread"><a>OK</a></div></body></html>`))
+	}))
+	defer server.Close()
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(strings.ReplaceAll(`
+site:
+  id: local
+  base_url: __BASE__
+indexes:
+  categories:
+    path: __INDEX__
+    items_key: categories
+    match_field: name
+tasks:
+  forum_threads:
+    params:
+      category:
+        required: true
+    resolve_params:
+      fid:
+        index: categories
+        from: category
+        value_field: fid
+      filter:
+        index: categories
+        from: category
+        value_field: filter
+        optional: true
+      typeid:
+        index: categories
+        from: category
+        value_field: typeid
+        optional: true
+    request:
+      path: /forum.php
+      omit_empty_query: true
+      query:
+        mod: forumdisplay
+        fid: "{fid}"
+        filter: "{filter}"
+        typeid: "{typeid}"
+    extract:
+      scope:
+        xpath: "//div[contains(@class, 'thread')]"
+      fields:
+        title:
+          xpath: ".//a"
+          attr: text
+          trim: true
+          on_missing: skip_item
+    output:
+      type: list
+      format:
+        title: "{title}"
+`, "__BASE__", server.URL), "__INDEX__", indexPath))
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "forum_threads",
+		Params:   map[string]string{"category": "高清中文字幕"},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+}
+
 func TestRunBlocksCloudflareChallenge(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Server", "cloudflare")

@@ -18,6 +18,27 @@ func Render(input string, vars map[string]string) (string, error) {
 	return out, nil
 }
 
+func Placeholders(input string) []string {
+	matches := placeholderRE.FindAllStringSubmatch(input, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	keys := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) != 2 {
+			continue
+		}
+		key := match[1]
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 func RenderString(input string, vars map[string]interface{}) (string, error) {
 	rendered, err := renderString(input, vars)
 	if err != nil {
