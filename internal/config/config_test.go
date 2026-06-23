@@ -119,6 +119,43 @@ tasks:
 	}
 }
 
+func TestParseAutoclickConfig(t *testing.T) {
+	cfg, err := config.Parse([]byte(`
+site:
+  id: autoclick_site
+  base_url: http://example.test
+defaults:
+  autoclick:
+    xpath: "//a[contains(@class, 'enter-btn')]"
+tasks:
+  search:
+    request:
+      path: /search
+      autoclick:
+        xpath: "//button[contains(@class, 'confirm')]"
+    extract:
+      fields:
+        title:
+          xpath: "//title"
+    output:
+      format:
+        title: "{title}"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Defaults.Autoclick == nil || cfg.Defaults.Autoclick.XPath != "//a[contains(@class, 'enter-btn')]" {
+		t.Fatalf("unexpected default autoclick: %#v", cfg.Defaults.Autoclick)
+	}
+	task, err := cfg.Task("search")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.Request.Autoclick == nil || task.Request.Autoclick.XPath != "//button[contains(@class, 'confirm')]" {
+		t.Fatalf("unexpected request autoclick: %#v", task.Request.Autoclick)
+	}
+}
+
 func TestValidateParamRegex(t *testing.T) {
 	_, err := config.Parse([]byte(`
 site:

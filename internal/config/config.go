@@ -23,8 +23,9 @@ type SiteConfig struct {
 }
 
 type DefaultsConfig struct {
-	Headers map[string]string `yaml:"headers"`
-	Cookie  string            `yaml:"cookie"`
+	Headers   map[string]string `yaml:"headers"`
+	Cookie    string            `yaml:"cookie"`
+	Autoclick *AutoclickConfig  `yaml:"autoclick"`
 }
 
 type Task struct {
@@ -169,6 +170,9 @@ func (c *Config) Validate() error {
 	if len(c.Tasks) == 0 {
 		return errors.New("tasks must contain at least one task")
 	}
+	if err := validateAutoclick("defaults.autoclick", c.Defaults.Autoclick); err != nil {
+		return err
+	}
 	for name, task := range c.Tasks {
 		if err := c.validateTask(name, task); err != nil {
 			return err
@@ -186,6 +190,9 @@ func (c *Config) validateTask(name string, task Task) error {
 	}
 	if strings.TrimSpace(task.Request.URL) == "" && strings.TrimSpace(task.Request.Path) == "" {
 		return fmt.Errorf("task %q: request.url or request.path is required", name)
+	}
+	if err := validateAutoclick(fmt.Sprintf("task %q: request.autoclick", name), task.Request.Autoclick); err != nil {
+		return err
 	}
 	if len(task.Extract.Fields) == 0 {
 		return fmt.Errorf("task %q: extract.fields must contain at least one field", name)
@@ -234,6 +241,16 @@ func (c *Config) validateTask(name string, task Task) error {
 		if spec.RegexGroup < 0 {
 			return fmt.Errorf("task %q: params.%s.regex_group cannot be negative", name, paramName)
 		}
+	}
+	return nil
+}
+
+func validateAutoclick(label string, autoclick *AutoclickConfig) error {
+	if autoclick == nil {
+		return nil
+	}
+	if strings.TrimSpace(autoclick.XPath) == "" {
+		return fmt.Errorf("%s.xpath is required", label)
 	}
 	return nil
 }

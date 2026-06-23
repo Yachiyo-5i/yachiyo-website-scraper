@@ -420,6 +420,50 @@ func TestRunBlocksCloudflareChallenge(t *testing.T) {
 	}
 }
 
+func TestRunBlocksAgeVerificationPage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`
+			<html><head><title>SEHUATANG.ORG</title></head><body>
+				<script>var safeid='abc';</script>
+				<a class="enter-btn" href="./">满18岁，请点此进入</a>
+			</body></html>
+		`))
+	}))
+	defer server.Close()
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(`
+site:
+  id: local
+  base_url: __BASE__
+tasks:
+  forum_threads:
+    request:
+      path: /forum.php
+    extract:
+      fields:
+        title:
+          xpath: //a
+          attr: text
+    output:
+      format:
+        title: "{title}"
+`, "__BASE__", server.URL))
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "forum_threads",
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK {
+		t.Fatal("expected blocked result")
+	}
+	if res.Error == nil || res.Error.Type != "blocked" || res.Error.Reason != "age_verification_required" {
+		t.Fatalf("unexpected error: %+v", res.Error)
+	}
+}
+
 func TestRunBypassesWithFlareSolverr(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("cf-mitigated", "challenge")
@@ -474,6 +518,77 @@ func TestRunBypassesWithFlareSolverr(t *testing.T) {
 	data := res.Data.([]map[string]interface{})
 	if data[0]["title"] != "Solved Title" {
 		t.Fatalf("unexpected title: %#v", data[0]["title"])
+	}
+}
+
+func TestRunPassesDefaultAutoclickToPlaywright(t *testing.T) {
+	targetURL := "https://target.example.test/forum.php"
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/fetch" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		var payload struct {
+			URL       string `json:"url"`
+			Autoclick *struct {
+				XPath string `json:"xpath"`
+			} `json:"autoclick"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.URL != targetURL {
+			t.Fatalf("unexpected url: %q", payload.URL)
+		}
+		if payload.Autoclick == nil || payload.Autoclick.XPath != "//a[contains(@class, 'enter-btn')]" {
+			t.Fatalf("unexpected autoclick payload: %#v", payload.Autoclick)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":    http.StatusOK,
+			"final_url": targetURL,
+			"body":      `<html><body><div class="thread"><a class="title">Clicked Page</a></div></body></html>`,
+		})
+	}))
+	defer playwright.Close()
+
+	cfg := loadInlineConfig(t, `
+site:
+  id: local
+  base_url: https://target.example.test
+defaults:
+  autoclick:
+    xpath: "//a[contains(@class, 'enter-btn')]"
+tasks:
+  forum_threads:
+    request:
+      path: /forum.php
+    extract:
+      scope:
+        xpath: "//div[contains(@class, 'thread')]"
+      fields:
+        title:
+          xpath: ".//a[contains(@class, 'title')]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+    output:
+      type: list
+      format:
+        title: "{title}"
+`)
+	runtime := fetcher.DefaultRuntimeOptions()
+	runtime.PlaywrightURL = playwright.URL
+	runtime.PlaywrightWait = time.Second
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "forum_threads",
+		Runtime:  runtime,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
 	}
 }
 

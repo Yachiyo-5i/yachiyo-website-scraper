@@ -69,7 +69,7 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) (*Result, error)
 	if method == "" {
 		method = "GET"
 	}
-	runtime, err := runtimeOptions(cfg, opts.Runtime, vars)
+	runtime, err := runtimeOptions(cfg, task, opts.Runtime, vars)
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +103,15 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) (*Result, error)
 			Type:    "blocked",
 			Reason:  fetchResult.Challenge.Reason,
 			Matched: fetchResult.Challenge.Matched,
+		}
+		return result, nil
+	}
+	if detectedAgeVerification(resp.Body) {
+		result.OK = false
+		result.Error = &ErrorInfo{
+			Type:    "blocked",
+			Reason:  "age_verification_required",
+			Matched: []string{"body: safe age verification page"},
 		}
 		return result, nil
 	}
@@ -215,6 +224,13 @@ func applyPaginationMeta(meta map[string]interface{}, cfg *config.PaginationConf
 			meta["total"] = total
 		}
 	}
+}
+
+func detectedAgeVerification(body string) bool {
+	lower := strings.ToLower(body)
+	return strings.Contains(lower, "enter-btn") &&
+		strings.Contains(lower, "safeid=") &&
+		strings.Contains(body, "满18岁")
 }
 
 func applyPaginationDefault(cfg *config.PaginationConfig, vars map[string]string) {
@@ -409,15 +425,27 @@ func renderHeaders(headers map[string]string, vars map[string]string) (map[strin
 	return out, nil
 }
 
-func runtimeOptions(cfg *config.Config, runtime fetcher.RuntimeOptions, vars map[string]string) (fetcher.RuntimeOptions, error) {
-	if strings.TrimSpace(runtime.Cookie) != "" || strings.TrimSpace(cfg.Defaults.Cookie) == "" {
-		return runtime, nil
+func runtimeOptions(cfg *config.Config, task config.Task, runtime fetcher.RuntimeOptions, vars map[string]string) (fetcher.RuntimeOptions, error) {
+	if strings.TrimSpace(runtime.Cookie) == "" && strings.TrimSpace(cfg.Defaults.Cookie) != "" {
+		cookie, err := templatex.Render(cfg.Defaults.Cookie, vars)
+		if err != nil {
+			return runtime, err
+		}
+		runtime.Cookie = cookie
 	}
-	cookie, err := templatex.Render(cfg.Defaults.Cookie, vars)
-	if err != nil {
-		return runtime, err
+	if runtime.Autoclick == nil {
+		autoclick := task.Request.Autoclick
+		if autoclick == nil {
+			autoclick = cfg.Defaults.Autoclick
+		}
+		if autoclick != nil {
+			xpath, err := templatex.Render(autoclick.XPath, vars)
+			if err != nil {
+				return runtime, err
+			}
+			runtime.Autoclick = &fetcher.AutoclickConfig{XPath: xpath}
+		}
 	}
-	runtime.Cookie = cookie
 	return runtime, nil
 }
 

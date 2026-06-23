@@ -380,7 +380,7 @@ func TestRenderHeaders(t *testing.T) {
 
 func TestRuntimeOptionsCookiePrecedence(t *testing.T) {
 	cfg := &config.Config{Defaults: config.DefaultsConfig{Cookie: "code={code}"}}
-	got, err := runtimeOptions(cfg, fetcher.RuntimeOptions{}, map[string]string{"code": "SSIS-001"})
+	got, err := runtimeOptions(cfg, config.Task{}, fetcher.RuntimeOptions{}, map[string]string{"code": "SSIS-001"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +388,7 @@ func TestRuntimeOptionsCookiePrecedence(t *testing.T) {
 		t.Fatalf("unexpected default cookie: %#v", got.Cookie)
 	}
 
-	got, err = runtimeOptions(cfg, fetcher.RuntimeOptions{Cookie: "runtime=1"}, map[string]string{"code": "SSIS-001"})
+	got, err = runtimeOptions(cfg, config.Task{}, fetcher.RuntimeOptions{Cookie: "runtime=1"}, map[string]string{"code": "SSIS-001"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -396,9 +396,35 @@ func TestRuntimeOptionsCookiePrecedence(t *testing.T) {
 		t.Fatalf("runtime cookie should take precedence, got %#v", got.Cookie)
 	}
 
-	_, err = runtimeOptions(cfg, fetcher.RuntimeOptions{}, map[string]string{})
+	_, err = runtimeOptions(cfg, config.Task{}, fetcher.RuntimeOptions{}, map[string]string{})
 	if err == nil {
 		t.Fatal("expected missing cookie template variable error")
+	}
+}
+
+func TestRuntimeOptionsAutoclickPrecedence(t *testing.T) {
+	cfg := &config.Config{Defaults: config.DefaultsConfig{
+		Autoclick: &config.AutoclickConfig{XPath: "//a[contains(@class, '{code}')]"},
+	}}
+	task := config.Task{Request: config.RequestConfig{
+		Autoclick: &config.AutoclickConfig{XPath: "//button[contains(@class, '{code}')]"},
+	}}
+
+	got, err := runtimeOptions(cfg, task, fetcher.RuntimeOptions{}, map[string]string{"code": "confirm"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Autoclick == nil || got.Autoclick.XPath != "//button[contains(@class, 'confirm')]" {
+		t.Fatalf("unexpected request autoclick: %#v", got.Autoclick)
+	}
+
+	runtime := fetcher.RuntimeOptions{Autoclick: &fetcher.AutoclickConfig{XPath: "//runtime[contains(@class, 'confirm')]"}}
+	got, err = runtimeOptions(cfg, task, runtime, map[string]string{"code": "confirm"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Autoclick == nil || got.Autoclick.XPath != "//runtime[contains(@class, 'confirm')]" {
+		t.Fatalf("runtime autoclick should take precedence, got %#v", got.Autoclick)
 	}
 }
 
