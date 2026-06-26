@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.4.1...v1.4.2) (2026-06-26)
+
+
+### Bug Fixes
+
+* 🐛 wikipedia profile task ([8f113f3](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/8f113f395689c20ee7353ba881d8844365963ba4))
+
 ## [1.4.1](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.4.0...v1.4.1) (2026-06-26)
 
 
