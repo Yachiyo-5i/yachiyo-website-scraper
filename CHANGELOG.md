@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.3.0...v1.4.0) (2026-06-26)
+
+
+### Features
+
+* 🎸 add wikipedia actor enrichment ([770c174](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/770c17466998833a0ddc57c4c46693c9762e4296))
+
 ## [1.3.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.2.0...v1.3.0) (2026-06-23)
 
 
