@@ -46,7 +46,7 @@ func wikipediaIntro(wikitext string) string {
 }
 
 func wikipediaInfoboxProfile(wikitext string) map[string]interface{} {
-	body, ok := leadingTemplateBody(wikitext)
+	body, ok := namedTemplateBody(wikitext, "AV女優")
 	if !ok {
 		return nil
 	}
@@ -62,9 +62,10 @@ func wikipediaInfoboxProfile(wikitext string) map[string]interface{} {
 		}
 	}
 
-	assignClean("name", "名前")
+	assignClean("name", "名前", "モデル名")
 	assignClean("ruby", "ふりがな")
 	assignClean("nickname", "愛称")
+	assignClean("alias", "別名")
 	assignClean("birth_place", "出身地")
 	assignClean("blood_type", "血液型")
 	assignClean("hair_color", "毛髪の色")
@@ -114,10 +115,33 @@ func leadingTemplateBody(wikitext string) (string, bool) {
 	return "", false
 }
 
-func stripLeadingTemplate(wikitext string) string {
-	start := strings.Index(wikitext, "{{")
-	if start < 0 {
-		return wikitext
+func namedTemplateBody(wikitext, name string) (string, bool) {
+	marker := "{{" + name
+	searchFrom := 0
+	for {
+		start := strings.Index(wikitext[searchFrom:], marker)
+		if start < 0 {
+			return "", false
+		}
+		start += searchFrom
+		if start+len(marker) < len(wikitext) {
+			next := wikitext[start+len(marker)]
+			if next != '\n' && next != '|' && next != '}' && next != ' ' {
+				searchFrom = start + len(marker)
+				continue
+			}
+		}
+		body, ok := templateBodyAt(wikitext, start)
+		if ok {
+			return body, true
+		}
+		searchFrom = start + len(marker)
+	}
+}
+
+func templateBodyAt(wikitext string, start int) (string, bool) {
+	if start < 0 || start >= len(wikitext)-1 || wikitext[start:start+2] != "{{" {
+		return "", false
 	}
 	depth := 0
 	for i := start; i < len(wikitext)-1; i++ {
@@ -129,11 +153,39 @@ func stripLeadingTemplate(wikitext string) string {
 			depth--
 			i++
 			if depth == 0 {
-				return wikitext[i+1:]
+				return wikitext[start+2 : i-1], true
 			}
 		}
 	}
-	return wikitext
+	return "", false
+}
+
+func stripLeadingTemplate(wikitext string) string {
+	rest := strings.TrimSpace(wikitext)
+	for strings.HasPrefix(rest, "{{") {
+		depth := 0
+		closed := false
+	scan:
+		for i := 0; i < len(rest)-1; i++ {
+			switch rest[i : i+2] {
+			case "{{":
+				depth++
+				i++
+			case "}}":
+				depth--
+				i++
+				if depth == 0 {
+					rest = strings.TrimSpace(rest[i+1:])
+					closed = true
+					break scan
+				}
+			}
+		}
+		if !closed {
+			return wikitext
+		}
+	}
+	return rest
 }
 
 func parseTemplateFields(body string) map[string]string {
