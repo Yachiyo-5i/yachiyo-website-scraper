@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.4.0...v1.4.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* 🐛 handle compact wikipedia infoboxes ([834fe79](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/834fe79c9fbd79327f9e6f79c17f9bfc61a860d3))
+
 ## [1.4.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.3.0...v1.4.0) (2026-06-26)
 
 
