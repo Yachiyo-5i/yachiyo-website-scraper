@@ -161,7 +161,7 @@ func fetchWikipediaActor(ctx context.Context, wikiCfg *config.Config, cfg config
 		"lang":  lang,
 	}, runtime)
 	if !ok || strings.TrimSpace(stringValue(summary["wikidata_id"])) == "" {
-		searchTitle, found := fetchWikipediaSearchTitle(ctx, wikiCfg, cfg, title, runtime)
+		searchTitle, found := fetchWikipediaSearchTitle(ctx, wikiCfg, wikipediaSearchTask(cfg), wikipediaLang(cfg), title, runtime)
 		if !found {
 			return wikipediaMiss(title, "not_found")
 		}
@@ -187,12 +187,12 @@ func fetchWikipediaActor(ctx context.Context, wikiCfg *config.Config, cfg config
 	return normalizeWikipediaActor(title, lang, summary, entity, content)
 }
 
-func fetchWikipediaSearchTitle(ctx context.Context, wikiCfg *config.Config, cfg config.WikipediaEnhanceConfig, title string, runtime fetcher.RuntimeOptions) (string, bool) {
+func fetchWikipediaSearchTitle(ctx context.Context, wikiCfg *config.Config, taskName, lang, title string, runtime fetcher.RuntimeOptions) (string, bool) {
 	result, err := Run(ctx, wikiCfg, Options{
-		TaskName: wikipediaSearchTask(cfg),
+		TaskName: taskName,
 		Params: map[string]string{
 			"keyword": title,
-			"lang":    wikipediaLang(cfg),
+			"lang":    lang,
 		},
 		Runtime: runtime,
 	})
@@ -228,6 +228,10 @@ func runWikipediaObjectTask(ctx context.Context, wikiCfg *config.Config, taskNam
 }
 
 func normalizeWikipediaActor(query, lang string, summary, entity, content map[string]interface{}) map[string]interface{} {
+	return normalizeWikipediaStructuredResult(query, lang, summary, entity, content)
+}
+
+func normalizeWikipediaStructuredResult(query, lang string, summary, entity, content map[string]interface{}) map[string]interface{} {
 	wikidataID := firstNonEmpty(stringValue(summary["wikidata_id"]), stringValue(entity["wikidata_id"]))
 	occupation := []interface{}{}
 	if value := propertyValue(entity["occupation_qid"], "P106", "qid"); value != nil {

@@ -37,6 +37,7 @@ type Task struct {
 	Pagination    *PaginationConfig        `yaml:"pagination"`
 	Output        OutputConfig             `yaml:"output"`
 	Enhance       EnhanceConfig            `yaml:"enhance"`
+	Wikipedia     *WikipediaTaskConfig     `yaml:"wikipedia"`
 }
 
 type ParamSpec struct {
@@ -141,6 +142,15 @@ type WikipediaEnhanceConfig struct {
 	ContentTask string `yaml:"content_task"`
 }
 
+type WikipediaTaskConfig struct {
+	Config      string `yaml:"config"`
+	Lang        string `yaml:"lang"`
+	SummaryTask string `yaml:"summary_task"`
+	SearchTask  string `yaml:"search_task"`
+	EntityTask  string `yaml:"entity_task"`
+	ContentTask string `yaml:"content_task"`
+}
+
 func Load(path string) (*Config, error) {
 	if isBuiltinRef(path) {
 		return LoadBuiltin(path)
@@ -200,31 +210,38 @@ func (c *Config) validateTask(name string, task Task) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("task name cannot be empty")
 	}
-	if strings.TrimSpace(task.Request.Method) == "" {
-		task.Request.Method = "GET"
-	}
-	if strings.TrimSpace(task.Request.URL) == "" && strings.TrimSpace(task.Request.Path) == "" {
-		return fmt.Errorf("task %q: request.url or request.path is required", name)
-	}
-	if err := validateAutoclick(fmt.Sprintf("task %q: request.autoclick", name), task.Request.Autoclick); err != nil {
-		return err
-	}
-	if len(task.Extract.Fields) == 0 {
-		return fmt.Errorf("task %q: extract.fields must contain at least one field", name)
-	}
-	extractType := strings.ToLower(strings.TrimSpace(task.Extract.Type))
-	if extractType != "" && extractType != "html" && extractType != "json" {
-		return fmt.Errorf("task %q: unsupported extract.type %q", name, task.Extract.Type)
-	}
-	if strings.TrimSpace(task.Output.Type) == "" {
-		task.Output.Type = "list"
-	}
-	if len(task.Output.Format) == 0 {
-		return fmt.Errorf("task %q: output.format must contain at least one field", name)
+	if task.Wikipedia == nil {
+		if strings.TrimSpace(task.Request.Method) == "" {
+			task.Request.Method = "GET"
+		}
+		if strings.TrimSpace(task.Request.URL) == "" && strings.TrimSpace(task.Request.Path) == "" {
+			return fmt.Errorf("task %q: request.url or request.path is required", name)
+		}
+		if err := validateAutoclick(fmt.Sprintf("task %q: request.autoclick", name), task.Request.Autoclick); err != nil {
+			return err
+		}
+		if len(task.Extract.Fields) == 0 {
+			return fmt.Errorf("task %q: extract.fields must contain at least one field", name)
+		}
+		extractType := strings.ToLower(strings.TrimSpace(task.Extract.Type))
+		if extractType != "" && extractType != "html" && extractType != "json" {
+			return fmt.Errorf("task %q: unsupported extract.type %q", name, task.Extract.Type)
+		}
+		if strings.TrimSpace(task.Output.Type) == "" {
+			task.Output.Type = "list"
+		}
+		if len(task.Output.Format) == 0 {
+			return fmt.Errorf("task %q: output.format must contain at least one field", name)
+		}
 	}
 	if task.Pagination != nil {
 		if strings.TrimSpace(task.Pagination.Param) == "" {
 			return fmt.Errorf("task %q: pagination.param is required", name)
+		}
+	}
+	if task.Wikipedia != nil {
+		if strings.TrimSpace(task.Wikipedia.Config) == "" {
+			task.Wikipedia.Config = "wikipedia"
 		}
 	}
 	if task.Enhance.ActorImage != nil {

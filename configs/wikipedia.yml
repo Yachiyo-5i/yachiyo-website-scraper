@@ -233,3 +233,14 @@ tasks:
         pageid: "{pageid}"
         wikitext: "{wikitext}"
         external_links: "{external_links}"
+
+  page_profile:
+    params:
+      lang:
+        default: zh
+      title:
+        required: true
+
+    wikipedia:
+      config: wikipedia
+      lang: zh

@@ -26,6 +26,7 @@ not as task parameters.
 | Wikipedia page summary | `page_summary` | No | No | No | No | No | Yes |
 | Wikidata entity by title | `entity_by_title` | No | No | No | No | No | Yes |
 | Wikipedia page content | `page_content` | No | No | No | No | No | Yes |
+| Wikipedia structured profile | `page_profile` | No | No | No | No | No | Yes |
 
 Pagination is single-page only. The CLI requests the page you pass with
 `-param page=...` and returns that page's data. It does not automatically fetch
@@ -429,6 +430,34 @@ Response fields:
   "external_links": []
 }
 ```
+
+## `page_profile`
+
+Fetch a structured Wikipedia profile assembled from the summary, Wikidata
+entity, and page content tasks.
+
+Supported sites:
+
+```text
+wikipedia
+```
+
+Parameters:
+
+```text
+title required. Exact page title or actor name.
+lang  optional. Defaults to zh.
+```
+
+Example:
+
+```bash
+./scraper run -config wikipedia -task page_profile -param title='Rikka Ono' -param lang=en
+```
+
+Response fields include the matched title, URL, Wikidata id, summary text,
+language variants, profile fields, social fields, media fields, and parsed
+text sections when available.
 
 ## Next Step
 

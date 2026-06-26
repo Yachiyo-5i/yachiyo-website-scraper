@@ -85,6 +85,9 @@ func TestLoadBuiltinSite(t *testing.T) {
 	if _, err := cfg.Task("entity_by_title"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := cfg.Task("page_profile"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func assertActorImageEnhancement(t *testing.T, task config.Task, itemsKey string) {

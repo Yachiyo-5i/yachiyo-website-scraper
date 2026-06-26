@@ -1253,9 +1253,511 @@ tasks:
 	if textProfile["nickname"] != "りっかたん" || textProfile["measurements"] != "81 - 58 - 82 cm" {
 		t.Fatalf("unexpected text profile: %#v", textProfile)
 	}
+	if textProfile["name"] != "小野 六花" {
+		t.Fatalf("unexpected text profile name: %#v", textProfile["name"])
+	}
 	externalLinks := text["external_links"].([]map[string]interface{})
 	if len(externalLinks) != 2 || externalLinks[0]["url"] != "https://twitter.com/onorikka" {
 		t.Fatalf("unexpected external links: %#v", externalLinks)
+	}
+}
+
+func TestRunWikipediaStructuredTask(t *testing.T) {
+	wikiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/summary/皆月光":
+			w.Write([]byte(`{
+				"title": "皆月光",
+				"pageid": 9468033,
+				"lang": "zh",
+				"wikibase_item": "Q59551818",
+				"description": "日本AV女優",
+				"extract": "皆月光，日本AV女优。隶属于Bambi Promotion。",
+				"thumbnail": {"source": "https://upload.example.test/minazuki.jpg"},
+				"content_urls": {"desktop": {"page": "https://zh.wikipedia.org/wiki/%E7%9A%86%E6%9C%88%E5%85%89"}},
+				"revision": "92602613",
+				"timestamp": "2026-05-10T04:44:23Z"
+			}`))
+		case "/entity":
+			w.Write([]byte(`{
+				"entities": {
+					"Q59551818": {
+						"id": "Q59551818",
+						"labels": {
+							"zh": {"value": "皆月光"},
+							"ja": {"value": "皆月ひかる"},
+							"en": {"value": "Hikaru Minazuki"}
+						},
+						"claims": {
+							"P569": [{"mainsnak": {"datavalue": {"value": {"time": "+2000-01-11T00:00:00Z"}}}}],
+							"P27": [{"mainsnak": {"datavalue": {"value": {"id": "Q17"}}}}],
+							"P106": [{"mainsnak": {"datavalue": {"value": {"id": "Q1079215"}}}}],
+							"P2002": [{"mainsnak": {"datavalue": {"value": "hikaru_emo"}}}],
+							"P2003": [{"mainsnak": {"datavalue": {"value": "hikaru_emot"}}}]
+						}
+					}
+				}
+			}`))
+		case "/content":
+			w.Write([]byte(`{
+				"parse": {
+					"title": "皆月光",
+					"pageid": 9468033,
+					"wikitext": "{{AV女優\\n| 原名 = 皆月 ひかる\\n| 暱稱 = ぴかぴか<br />ひかちゅう\\n| 別名 = ひかる<br />高橋 未来\\n| 生年 = 2000\\n| 生月 = 1\\n| 生日 = 11\\n| 出身地 = [[秋田県]]\\n| 從事年期 = [[2018年]] -\\n| 専属契約 = [[ディープス]]（2018年）\\n| 血型 = \\n| 身高 = 148\\n| 體重 = \\n| バスト = 83\\n| 腰圍 = 55\\n| 下圍 = 85\\n| カップ = B\\n}}\\n'''皆月光'''（{{lang-ja|皆月 ひかる}}，[[2000年]][[1月11日]]—），[[日本]][[AV女优]]。隶属于[[Bambi Promotion]]。\\n== 简历 ==\\n2018年出道。\\n== 人物 ==\\n特长为钢琴。\\n== 外部链接 ==\\n* {{Twitter|hikaru_emo}}\\n",
+					"externallinks": ["https://twitter.com/hikaru_emo"]
+				}
+			}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer wikiServer.Close()
+
+	dir := t.TempDir()
+	wikiConfigPath := filepath.Join(dir, "wikipedia.yml")
+	if err := os.WriteFile(wikiConfigPath, []byte(strings.ReplaceAll(`
+site:
+  id: wikipedia
+  base_url: __WIKI__
+defaults:
+  headers:
+    User-Agent: yachiyo-website-scraper/1.0
+    Api-User-Agent: yachiyo-website-scraper/1.0
+    Accept: application/json
+tasks:
+  page_summary:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /summary/{title}
+    extract:
+      type: json
+      fields:
+        title:
+          path: "$.title"
+        pageid:
+          path: "$.pageid"
+          type: int
+        lang:
+          path: "$.lang"
+        wikidata_id:
+          path: "$.wikibase_item"
+        description:
+          path: "$.description"
+        summary:
+          path: "$.extract"
+        thumbnail:
+          path: "$.thumbnail.source"
+        page_url:
+          path: "$.content_urls.desktop.page"
+        revision:
+          path: "$.revision"
+        timestamp:
+          path: "$.timestamp"
+    output:
+      type: object
+      format:
+        title: "{title}"
+        pageid: "{pageid}"
+        lang: "{lang}"
+        wikidata_id: "{wikidata_id}"
+        description: "{description}"
+        summary: "{summary}"
+        thumbnail: "{thumbnail}"
+        page_url: "{page_url}"
+        revision: "{revision}"
+        timestamp: "{timestamp}"
+  entity_by_title:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /entity
+      query:
+        title: "{title}"
+        lang: "{lang}"
+    extract:
+      type: json
+      fields:
+        wikidata_id:
+          path: "$.entities.*.id"
+        birth_date:
+          path: "$.entities.*.claims.P569[0].mainsnak.datavalue.value.time"
+          regex: "^\\+([0-9]{4}-[0-9]{2}-[0-9]{2})"
+        country_qid:
+          path: "$.entities.*.claims.P27[0].mainsnak.datavalue.value.id"
+        occupation_qid:
+          path: "$.entities.*.claims.P106[0].mainsnak.datavalue.value.id"
+        x_username:
+          path: "$.entities.*.claims.P2002[0].mainsnak.datavalue.value"
+        instagram_username:
+          path: "$.entities.*.claims.P2003[0].mainsnak.datavalue.value"
+    output:
+      type: object
+      format:
+        wikidata_id: "{wikidata_id}"
+        birth_date: "{birth_date}"
+        country_qid: "{country_qid}"
+        occupation_qid: "{occupation_qid}"
+        x_username: "{x_username}"
+        instagram_username: "{instagram_username}"
+  page_content:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /content
+      query:
+        title: "{title}"
+        lang: "{lang}"
+    extract:
+      type: json
+      fields:
+        title:
+          path: "$.parse.title"
+        pageid:
+          path: "$.parse.pageid"
+          type: int
+        wikitext:
+          path: "$.parse.wikitext"
+        external_links:
+          path: "$.parse.externallinks.*"
+          multiple: true
+    output:
+      type: object
+      format:
+        title: "{title}"
+        pageid: "{pageid}"
+        wikitext: "{wikitext}"
+        external_links: "{external_links}"
+  page_profile:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    wikipedia:
+      config: wikipedia
+      lang: zh
+      title_field: title
+      target_field: wikipedia
+`, "__WIKI__", wikiServer.URL)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(`
+site:
+  id: local
+  base_url: http://example.test
+tasks:
+  page_profile:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    wikipedia:
+      config: __WIKI_CONFIG__
+      lang: zh
+`, "__WIKI_CONFIG__", wikiConfigPath))
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "page_profile",
+		Params:   map[string]string{"title": "皆月光", "lang": "zh"},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+	data, ok := res.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected data type: %T", res.Data)
+	}
+	if data["title"] != "皆月光" {
+		t.Fatalf("unexpected title: %#v", data["title"])
+	}
+	if data["wikidata_id"] != "Q59551818" {
+		t.Fatalf("unexpected wikidata id: %#v", data["wikidata_id"])
+	}
+	text := data["text"].(map[string]interface{})
+	if text["resume"] == "" || text["person"] == "" {
+		t.Fatalf("expected structured text, got %#v", text)
+	}
+	if profile := text["profile"].(map[string]interface{}); profile["name"] != "皆月 ひかる" {
+		t.Fatalf("unexpected profile: %#v", profile)
+	}
+}
+
+func TestRunWikipediaStructuredTaskFallsBackToSearch(t *testing.T) {
+	wikiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/summary/小野坂ゆいか":
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{}`))
+		case "/search":
+			if got := r.URL.Query().Get("keyword"); got != "小野坂ゆいか" {
+				t.Fatalf("unexpected search keyword: %q", got)
+			}
+			w.Write([]byte(`[
+				{"title": "小野坂唯花", "pageid": 12345, "snippet": "candidate", "timestamp": "2026-06-01T00:00:00Z"}
+			]`))
+		case "/summary/小野坂唯花":
+			w.Write([]byte(`{
+				"title": "小野坂唯花",
+				"pageid": 12345,
+				"lang": "zh",
+				"wikibase_item": "Q12345678",
+				"description": "日本AV女優",
+				"extract": "小野坂唯花，日本AV女优。",
+				"thumbnail": {"source": "https://upload.example.test/yuika.jpg"},
+				"content_urls": {"desktop": {"page": "https://zh.wikipedia.org/wiki/%E5%B0%8F%E9%87%8E%E5%9D%82%E5%94%AF%E8%8A%B1"}},
+				"revision": "1",
+				"timestamp": "2026-06-01T00:00:00Z"
+			}`))
+		case "/entity":
+			if got := r.URL.Query().Get("title"); got != "小野坂唯花" {
+				t.Fatalf("unexpected entity title: %q", got)
+			}
+			w.Write([]byte(`{
+				"entities": {
+					"Q12345678": {
+						"id": "Q12345678",
+						"labels": {
+							"zh": {"value": "小野坂唯花"}
+						},
+						"claims": {
+							"P106": [{"mainsnak": {"datavalue": {"value": {"id": "Q1079215"}}}}]
+						}
+					}
+				}
+			}`))
+		case "/content":
+			if got := r.URL.Query().Get("title"); got != "小野坂唯花" {
+				t.Fatalf("unexpected content title: %q", got)
+			}
+			w.Write([]byte(`{
+				"parse": {
+					"title": "小野坂唯花",
+					"pageid": 12345,
+					"wikitext": "{{AV女優\\n| 名前 = 小野坂 唯花\\n| 愛称 = ゆいか\\n}}\\n'''小野坂唯花'''，[[日本]][[AV女优]]。\\n==简历==\\n新人介绍。\\n==人物==\\n人物介绍。\\n",
+					"externallinks": []
+				}
+			}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer wikiServer.Close()
+
+	dir := t.TempDir()
+	wikiConfigPath := filepath.Join(dir, "wikipedia.yml")
+	if err := os.WriteFile(wikiConfigPath, []byte(strings.ReplaceAll(`
+site:
+  id: wikipedia
+  base_url: __WIKI__
+defaults:
+  headers:
+    User-Agent: yachiyo-website-scraper/1.0
+    Api-User-Agent: yachiyo-website-scraper/1.0
+    Accept: application/json
+tasks:
+  page_search:
+    params:
+      keyword:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /search
+      query:
+        keyword: "{keyword}"
+        lang: "{lang}"
+    extract:
+      type: json
+      scope:
+        path: "$.*"
+      fields:
+        title:
+          path: "$.title"
+        pageid:
+          path: "$.pageid"
+          type: int
+        snippet:
+          path: "$.snippet"
+        timestamp:
+          path: "$.timestamp"
+    output:
+      type: list
+      format:
+        title: "{title}"
+        pageid: "{pageid}"
+        snippet: "{snippet}"
+        timestamp: "{timestamp}"
+  page_summary:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /summary/{title}
+      accept_status: [404]
+    extract:
+      type: json
+      fields:
+        title:
+          path: "$.title"
+        pageid:
+          path: "$.pageid"
+          type: int
+        lang:
+          path: "$.lang"
+        wikidata_id:
+          path: "$.wikibase_item"
+        description:
+          path: "$.description"
+        summary:
+          path: "$.extract"
+        thumbnail:
+          path: "$.thumbnail.source"
+        page_url:
+          path: "$.content_urls.desktop.page"
+        revision:
+          path: "$.revision"
+        timestamp:
+          path: "$.timestamp"
+    output:
+      type: object
+      format:
+        title: "{title}"
+        pageid: "{pageid}"
+        lang: "{lang}"
+        wikidata_id: "{wikidata_id}"
+        description: "{description}"
+        summary: "{summary}"
+        thumbnail: "{thumbnail}"
+        page_url: "{page_url}"
+        revision: "{revision}"
+        timestamp: "{timestamp}"
+  entity_by_title:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /entity
+      query:
+        title: "{title}"
+        lang: "{lang}"
+    extract:
+      type: json
+      fields:
+        wikidata_id:
+          path: "$.entities.*.id"
+        occupation_qid:
+          path: "$.entities.*.claims.P106[0].mainsnak.datavalue.value.id"
+    output:
+      type: object
+      format:
+        wikidata_id: "{wikidata_id}"
+        occupation_qid: "{occupation_qid}"
+  page_content:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /content
+      query:
+        title: "{title}"
+        lang: "{lang}"
+    extract:
+      type: json
+      fields:
+        title:
+          path: "$.parse.title"
+        pageid:
+          path: "$.parse.pageid"
+          type: int
+        wikitext:
+          path: "$.parse.wikitext"
+        external_links:
+          path: "$.parse.externallinks.*"
+          multiple: true
+    output:
+      type: object
+      format:
+        title: "{title}"
+        pageid: "{pageid}"
+        wikitext: "{wikitext}"
+        external_links: "{external_links}"
+  page_profile:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    wikipedia:
+      config: wikipedia
+      lang: zh
+`, `__WIKI__`, wikiServer.URL)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(`
+site:
+  id: local
+  base_url: http://example.test
+tasks:
+  page_profile:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    wikipedia:
+      config: __WIKI_CONFIG__
+      lang: zh
+`, "__WIKI_CONFIG__", wikiConfigPath))
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "page_profile",
+		Params:   map[string]string{"title": "小野坂ゆいか", "lang": "zh"},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+	data := res.Data.(map[string]interface{})
+	if data["title"] != "小野坂唯花" {
+		t.Fatalf("unexpected title: %#v", data["title"])
+	}
+	if res.URL != "https://zh.wikipedia.org/wiki/%E5%B0%8F%E9%87%8E%E5%9D%82%E5%94%AF%E8%8A%B1" {
+		t.Fatalf("unexpected url: %#v", res.URL)
 	}
 }
 

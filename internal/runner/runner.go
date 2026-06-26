@@ -50,6 +50,9 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) (*Result, error)
 	if err != nil {
 		return nil, err
 	}
+	if task.Wikipedia != nil {
+		return runWikipediaStructuredTask(ctx, cfg, task, opts)
+	}
 
 	vars, err := resolveParams(cfg, task, opts.Params)
 	if err != nil {
@@ -174,6 +177,100 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) (*Result, error)
 	}
 	applyEnhancements(ctx, task, result, opts)
 	return result, nil
+}
+
+func runWikipediaStructuredTask(ctx context.Context, cfg *config.Config, task config.Task, opts Options) (*Result, error) {
+	wikiTask := firstNonEmpty(task.Wikipedia.Config, "wikipedia")
+	wikiCfg, err := config.Load(wikiTask)
+	if err != nil {
+		return &Result{
+			OK:     false,
+			Site:   cfg.Site.ID,
+			Task:   opts.TaskName,
+			Error:  &ErrorInfo{Type: "config_error", Reason: err.Error()},
+			Status: 0,
+		}, nil
+	}
+
+	lang := firstNonEmpty(opts.Params["lang"], task.Wikipedia.Lang, "zh")
+	title := firstNonEmpty(opts.Params["title"], opts.Params["name"])
+	if strings.TrimSpace(title) == "" {
+		return &Result{
+			OK:     false,
+			Site:   cfg.Site.ID,
+			Task:   opts.TaskName,
+			Error:  &ErrorInfo{Type: "param_error", Reason: "title is required"},
+			Status: 0,
+		}, nil
+	}
+
+	entityTask := firstNonEmpty(task.Wikipedia.EntityTask, "entity_by_title")
+	contentTask := firstNonEmpty(task.Wikipedia.ContentTask, "page_content")
+
+	summary, acceptedTitle, ok := runWikipediaStructuredSummary(ctx, wikiCfg, task, title, lang, opts.Runtime)
+	if !ok {
+		return &Result{
+			OK:    false,
+			Site:  cfg.Site.ID,
+			Task:  opts.TaskName,
+			Error: &ErrorInfo{Type: "summary_error", Reason: "unable to load wikipedia summary"},
+		}, nil
+	}
+	entity, _ := runWikipediaObjectTask(ctx, wikiCfg, entityTask, map[string]string{
+		"title": acceptedTitle,
+		"lang":  lang,
+	}, opts.Runtime)
+	content, _ := runWikipediaObjectTask(ctx, wikiCfg, contentTask, map[string]string{
+		"title": acceptedTitle,
+		"lang":  lang,
+	}, opts.Runtime)
+
+	result := &Result{
+		OK:      true,
+		Site:    cfg.Site.ID,
+		Task:    opts.TaskName,
+		Status:  200,
+		Data:    normalizeWikipediaStructuredResult(title, lang, summary, entity, content),
+		Channel: fetcher.ChannelHTTP,
+	}
+	if pageURL := stringValue(summary["page_url"]); pageURL != "" {
+		result.URL = pageURL
+	}
+	meta := map[string]interface{}{}
+	if pageID, ok := summary["pageid"].(int); ok && pageID > 0 {
+		meta["pageid"] = pageID
+	}
+	if wikidataID := stringValue(summary["wikidata_id"]); wikidataID != "" {
+		meta["wikidata_id"] = wikidataID
+	}
+	if len(meta) > 0 {
+		result.Meta = meta
+	}
+	return result, nil
+}
+
+func runWikipediaStructuredSummary(ctx context.Context, wikiCfg *config.Config, task config.Task, title, lang string, runtime fetcher.RuntimeOptions) (map[string]interface{}, string, bool) {
+	summaryTask := firstNonEmpty(task.Wikipedia.SummaryTask, "page_summary")
+	summary, ok := runWikipediaObjectTask(ctx, wikiCfg, summaryTask, map[string]string{
+		"title": title,
+		"lang":  lang,
+	}, runtime)
+	if ok && strings.TrimSpace(stringValue(summary["wikidata_id"])) != "" {
+		return summary, firstNonEmpty(stringValue(summary["title"]), title), true
+	}
+
+	searchTitle, found := fetchWikipediaSearchTitle(ctx, wikiCfg, firstNonEmpty(task.Wikipedia.SearchTask, "page_search"), lang, title, runtime)
+	if !found {
+		return nil, "", false
+	}
+	summary, ok = runWikipediaObjectTask(ctx, wikiCfg, summaryTask, map[string]string{
+		"title": searchTitle,
+		"lang":  lang,
+	}, runtime)
+	if !ok {
+		return nil, "", false
+	}
+	return summary, firstNonEmpty(stringValue(summary["title"]), searchTitle, title), true
 }
 
 func buildPageData(output config.OutputConfig, pageFields extractor.ExtractedItem, items []map[string]interface{}) (map[string]interface{}, error) {

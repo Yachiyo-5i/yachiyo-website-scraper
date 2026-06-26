@@ -25,6 +25,7 @@ Bundled site configs are embedded into the binary and can be selected with
 | Wikipedia page summary | `page_summary` | No | No | No | No | No | Yes |
 | Wikidata entity by title | `entity_by_title` | No | No | No | No | No | Yes |
 | Wikipedia page content | `page_content` | No | No | No | No | No | Yes |
+| Wikipedia structured profile | `page_profile` | No | No | No | No | No | Yes |
 
 Pagination is single-page only. The CLI requests the page you pass with
 `-param page=...` and returns that page's data.

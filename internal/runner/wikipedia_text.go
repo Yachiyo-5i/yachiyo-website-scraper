@@ -24,6 +24,18 @@ func parseWikipediaTextContent(content map[string]interface{}) map[string]interf
 	if profile := wikipediaInfoboxProfile(wikitext); len(profile) > 0 {
 		text["profile"] = profile
 	}
+	if resume := wikipediaSection(wikitext, "简历"); resume != "" {
+		text["resume"] = cleanWikitext(resume)
+	}
+	if resume := wikipediaSection(wikitext, "簡歷"); resume != "" {
+		text["resume"] = cleanWikitext(resume)
+	}
+	if resume := wikipediaSection(wikitext, "履历"); resume != "" {
+		text["resume"] = cleanWikitext(resume)
+	}
+	if resume := wikipediaSection(wikitext, "履歷"); resume != "" {
+		text["resume"] = cleanWikitext(resume)
+	}
 	if person := wikipediaSection(wikitext, "人物"); person != "" {
 		text["person"] = cleanWikitext(person)
 	}
@@ -62,31 +74,40 @@ func wikipediaInfoboxProfile(wikitext string) map[string]interface{} {
 		}
 	}
 
-	assignClean("name", "名前", "モデル名")
-	assignClean("ruby", "ふりがな")
-	assignClean("nickname", "愛称")
-	assignClean("alias", "別名")
+	assignClean("name", "原名", "名前", "モデル名")
+	assignClean("ruby", "假名", "かな", "ふりがな")
+	assignClean("nickname", "暱稱", "愛稱", "愛称", "爱称")
+	assignClean("alias", "別名", "别名")
 	assignClean("birth_place", "出身地")
-	assignClean("blood_type", "血液型")
+	assignClean("blood_type", "血液型", "血型")
 	assignClean("hair_color", "毛髪の色")
-	assignClean("body_as_of", "時点")
+	assignClean("body_as_of", "檢查日期", "時点")
 	assignClean("cup", "カップ")
 	assignClean("genre", "ジャンル")
-	assignClean("activity_period", "AV出演期間")
+	assignClean("activity_period", "從事年期", "AV出演期間")
 	assignClean("exclusive_contract", "専属契約")
 
 	if birthDate := infoboxBirthDate(raw); birthDate != "" {
 		profile["birth_date"] = birthDate
 	}
-	if value := cleanNumber(raw["身長"]); value != "" {
+	if value := cleanNumber(firstNonEmpty(raw["身長"], raw["身高"])); value != "" {
 		profile["height_cm"] = value
 	}
-	if value := cleanNumber(raw["体重"]); value != "" {
+	if value := cleanNumber(firstNonEmpty(raw["体重"], raw["體重"])); value != "" {
 		profile["weight_kg"] = value
 	}
 	bust := cleanNumber(raw["バスト"])
-	waist := cleanNumber(raw["ウエスト"])
-	hips := cleanNumber(raw["ヒップ"])
+	if bust != "" {
+		profile["bust_cm"] = bust
+	}
+	waist := cleanNumber(firstNonEmpty(raw["ウエスト"], raw["腰圍"]))
+	if waist != "" {
+		profile["waist_cm"] = waist
+	}
+	hips := cleanNumber(firstNonEmpty(raw["ヒップ"], raw["下圍"]))
+	if hips != "" {
+		profile["hips_cm"] = hips
+	}
 	if bust != "" || waist != "" || hips != "" {
 		profile["measurements"] = strings.TrimSpace(fmt.Sprintf("%s - %s - %s cm", bust, waist, hips))
 	}
@@ -315,6 +336,7 @@ func cleanWikitext(value string) string {
 	value = regexp.MustCompile(`<ref\b[^>]*/>`).ReplaceAllString(value, "")
 	value = regexp.MustCompile(`(?i)<br\s*/?>`).ReplaceAllString(value, "\n")
 	value = simplifyKnownTemplates(value)
+	value = regexp.MustCompile(`\{\{\s*JPN\s*\}\}`).ReplaceAllString(value, "日本")
 	value = regexp.MustCompile(`\[\[(?:File|Image|Category):[^\]]+\]\]`).ReplaceAllString(value, "")
 	value = regexp.MustCompile(`\[\[[^|\]]+\|([^\]]+)\]\]`).ReplaceAllString(value, "$1")
 	value = regexp.MustCompile(`\[\[([^\]]+)\]\]`).ReplaceAllString(value, "$1")
