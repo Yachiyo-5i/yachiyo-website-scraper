@@ -943,6 +943,322 @@ tasks:
 	}
 }
 
+func TestRunEnhancesActorSearchFromWikipediaConfig(t *testing.T) {
+	wikiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Api-User-Agent"); got == "" {
+			t.Fatal("expected Api-User-Agent header")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/summary/Rikka Ono":
+			w.Write([]byte(`{
+				"title": "Rikka Ono",
+				"pageid": 7407438,
+				"lang": "zh",
+				"wikibase_item": "Q97031495",
+				"description": "Japanese AV actress",
+				"extract": "Rikka Ono is a Japanese AV actress.",
+				"thumbnail": {"source": "https://upload.example.test/rikka.jpg"},
+				"content_urls": {"desktop": {"page": "https://zh.wikipedia.org/wiki/Rikka_Ono"}},
+				"revision": "93067322",
+				"timestamp": "2026-06-14T16:28:45Z"
+			}`))
+		case "/entity":
+			if got := r.URL.Query().Get("title"); got != "Rikka Ono" {
+				t.Fatalf("unexpected entity title: %q", got)
+			}
+			w.Write([]byte(`{
+				"entities": {
+					"Q97031495": {
+						"id": "Q97031495",
+						"labels": {
+							"zh": {"value": "Rikka Ono"},
+							"ja": {"value": "Rikka Ono"},
+							"en": {"value": "Rikka Ono"}
+						},
+						"claims": {
+							"P569": [{"mainsnak": {"datavalue": {"value": {"time": "+2002-01-29T00:00:00Z"}}}}],
+							"P27": [{"mainsnak": {"datavalue": {"value": {"id": "Q17"}}}}],
+							"P106": [{"mainsnak": {"datavalue": {"value": {"id": "Q1079215"}}}}],
+							"P2002": [{"mainsnak": {"datavalue": {"value": "onorikka"}}}],
+							"P2003": [{"mainsnak": {"datavalue": {"value": "ono_rikka"}}}],
+							"P373": [{"mainsnak": {"datavalue": {"value": "Rikka Ono"}}}],
+							"P18": [{"mainsnak": {"datavalue": {"value": "Rikka.jpg"}}}]
+						}
+					}
+				}
+			}`))
+		case "/content":
+			if got := r.URL.Query().Get("title"); got != "Rikka Ono" {
+				t.Fatalf("unexpected content title: %q", got)
+			}
+			w.Write([]byte(`{
+				"parse": {
+					"title": "Rikka Ono",
+					"pageid": 7407438,
+					"wikitext": "{{AV女優\\n| 名前 = 小野 六花\\n| ふりがな = おの りっか\\n| 愛称 = りっかたん\\n| 生年 = 2002\\n| 生月 = 2\\n| 生日 = 14\\n| 出身地 = [[滋賀縣]]\\n| 血液型 = {{fact|o}}\\n| 毛髪の色 = black\\n| 身長 = 148\\n| 体重 = 56\\n| バスト = 81\\n| ウエスト = 58\\n| ヒップ = 82\\n| カップ = C[2]\\n| ジャンル = [[成人影片]]\\n| AV出演期間 = [[2020年]] -\\n| 専属契約 = [[MOODYZ]]\\n}}\\n'''小野六花'''（{{jpn|j='''小野六花'''|hg=おの りっか|rm=Ono Rikka}}；{{bd|2002年|2月14日}}），[[日本]][[AV女優]]。所属于[[Allpro]]旗下，身高148cm。\\n==人物==\\n她说出道前从未看过AV，第一次接触AV女星是通过[[社交網路服務|SNS]]认识的[[明日花绮罗]]。\\n== 外部链接 ==\\n* {{Twitter|onorikka}}\\n* {{Instagram|ono_rikka}}\\n",
+					"externallinks": ["https://twitter.com/onorikka", "https://www.instagram.com/ono_rikka/"]
+				}
+			}`))
+		default:
+			t.Fatalf("unexpected wiki path: %s", r.URL.String())
+		}
+	}))
+	defer wikiServer.Close()
+
+	dir := t.TempDir()
+	wikiConfigPath := filepath.Join(dir, "wikipedia.yml")
+	if err := os.WriteFile(wikiConfigPath, []byte(strings.ReplaceAll(`
+site:
+  id: wikipedia
+  base_url: __WIKI__
+defaults:
+  headers:
+    User-Agent: yachiyo-website-scraper/1.0 (https://github.com/Yachiyo-5i/yachiyo-website-scraper)
+    Api-User-Agent: yachiyo-website-scraper/1.0 (https://github.com/Yachiyo-5i/yachiyo-website-scraper)
+    Accept: application/json
+tasks:
+  page_summary:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /summary/{title}
+    extract:
+      type: json
+      fields:
+        title:
+          path: "$.title"
+          on_missing: error
+        pageid:
+          path: "$.pageid"
+          type: int
+        lang:
+          path: "$.lang"
+        wikidata_id:
+          path: "$.wikibase_item"
+        description:
+          path: "$.description"
+        summary:
+          path: "$.extract"
+        thumbnail:
+          path: "$.thumbnail.source"
+        page_url:
+          path: "$.content_urls.desktop.page"
+        revision:
+          path: "$.revision"
+        timestamp:
+          path: "$.timestamp"
+    output:
+      type: object
+      format:
+        title: "{title}"
+        pageid: "{pageid}"
+        lang: "{lang}"
+        wikidata_id: "{wikidata_id}"
+        description: "{description}"
+        summary: "{summary}"
+        thumbnail: "{thumbnail}"
+        page_url: "{page_url}"
+        revision: "{revision}"
+        timestamp: "{timestamp}"
+  entity_by_title:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /entity
+      query:
+        title: "{title}"
+        lang: "{lang}"
+    extract:
+      type: json
+      fields:
+        wikidata_id:
+          path: "$.entities.*.id"
+        birth_date:
+          path: "$.entities.*.claims.P569[0].mainsnak.datavalue.value.time"
+          regex: "^\\+([0-9]{4}-[0-9]{2}-[0-9]{2})"
+        country_qid:
+          path: "$.entities.*.claims.P27[0].mainsnak.datavalue.value.id"
+        occupation_qid:
+          path: "$.entities.*.claims.P106[0].mainsnak.datavalue.value.id"
+        x_username:
+          path: "$.entities.*.claims.P2002[0].mainsnak.datavalue.value"
+        instagram_username:
+          path: "$.entities.*.claims.P2003[0].mainsnak.datavalue.value"
+        commons_category:
+          path: "$.entities.*.claims.P373[0].mainsnak.datavalue.value"
+        wikidata_image:
+          path: "$.entities.*.claims.P18[0].mainsnak.datavalue.value"
+        zh_title:
+          path: "$.entities.*.labels.zh.value"
+        ja_title:
+          path: "$.entities.*.labels.ja.value"
+        en_title:
+          path: "$.entities.*.labels.en.value"
+    output:
+      type: object
+      format:
+        wikidata_id: "{wikidata_id}"
+        birth_date: "{birth_date}"
+        country_qid: "{country_qid}"
+        occupation_qid: "{occupation_qid}"
+        x_username: "{x_username}"
+        instagram_username: "{instagram_username}"
+        commons_category: "{commons_category}"
+        wikidata_image: "{wikidata_image}"
+        zh_title: "{zh_title}"
+        ja_title: "{ja_title}"
+        en_title: "{en_title}"
+  page_content:
+    params:
+      title:
+        required: true
+      lang:
+        default: zh
+    request:
+      method: GET
+      path: /content
+      query:
+        title: "{title}"
+        lang: "{lang}"
+    extract:
+      type: json
+      fields:
+        title:
+          path: "$.parse.title"
+        pageid:
+          path: "$.parse.pageid"
+          type: int
+        wikitext:
+          path: "$.parse.wikitext"
+        external_links:
+          path: "$.parse.externallinks.*"
+          multiple: true
+    output:
+      type: object
+      format:
+        title: "{title}"
+        pageid: "{pageid}"
+        wikitext: "{wikitext}"
+        external_links: "{external_links}"
+`, "__WIKI__", wikiServer.URL)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	actorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/searchstar/Rikka" {
+			t.Fatalf("unexpected actor path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`
+			<html><body>
+				<a class="avatar-box" href="/star/r1">
+					<img title="Rikka Ono" src="/actors/rikka.jpg">
+				</a>
+			</body></html>
+		`))
+	}))
+	defer actorServer.Close()
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(strings.ReplaceAll(`
+site:
+  id: local
+  base_url: __BASE__
+tasks:
+  actor_search:
+    params:
+      keyword:
+        required: true
+    request:
+      method: GET
+      path: /searchstar/{keyword}
+    extract:
+      scope:
+        xpath: "//a[contains(@class, 'avatar-box')]"
+      fields:
+        name:
+          xpath: ".//img"
+          attr: title
+          trim: true
+          on_missing: skip_item
+        image:
+          xpath: ".//img"
+          attr: src
+          resolve_url: true
+    output:
+      type: object
+      items_key: actors
+      format:
+        name: "{name}"
+        image: "{image}"
+    enhance:
+      wikipedia:
+        config: __WIKI_CONFIG__
+        lang: zh
+        title_field: name
+        target_field: wikipedia
+`, "__BASE__", actorServer.URL), "__WIKI_CONFIG__", wikiConfigPath))
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "actor_search",
+		Params:   map[string]string{"keyword": "Rikka"},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+	data := res.Data.(map[string]interface{})
+	actors := data["actors"].([]map[string]interface{})
+	wiki, ok := actors[0]["wikipedia"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected wikipedia object, got %#v", actors[0]["wikipedia"])
+	}
+	if wiki["matched"] != true || wiki["wikidata_id"] != "Q97031495" {
+		t.Fatalf("unexpected wikipedia match: %#v", wiki)
+	}
+	if wiki["summary"] != "Rikka Ono is a Japanese AV actress." {
+		t.Fatalf("unexpected summary: %#v", wiki["summary"])
+	}
+	profile := wiki["profile"].(map[string]interface{})
+	birthDate := profile["birth_date"].(map[string]interface{})
+	if birthDate["value"] != "2002-01-29" || birthDate["property"] != "P569" {
+		t.Fatalf("unexpected birth date: %#v", birthDate)
+	}
+	social := wiki["social"].(map[string]interface{})
+	if social["x"] != "onorikka" || social["instagram"] != "ono_rikka" {
+		t.Fatalf("unexpected social data: %#v", social)
+	}
+	text := wiki["text"].(map[string]interface{})
+	if _, ok := text["full_text"]; ok {
+		t.Fatalf("scraper should not assemble display-only full_text: %#v", text["full_text"])
+	}
+	if !strings.Contains(text["intro"].(string), "Ono Rikka") {
+		t.Fatalf("expected cleaned intro, got %#v", text["intro"])
+	}
+	if !strings.Contains(text["person"].(string), "SNS") {
+		t.Fatalf("expected person section, got %#v", text["person"])
+	}
+	textProfile := text["profile"].(map[string]interface{})
+	if textProfile["nickname"] != "りっかたん" || textProfile["measurements"] != "81 - 58 - 82 cm" {
+		t.Fatalf("unexpected text profile: %#v", textProfile)
+	}
+	externalLinks := text["external_links"].([]map[string]interface{})
+	if len(externalLinks) != 2 || externalLinks[0]["url"] != "https://twitter.com/onorikka" {
+		t.Fatalf("unexpected external links: %#v", externalLinks)
+	}
+}
+
 func TestRunWrapsItemsKeyWithoutPageFormatAndMultipleFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/works" {

@@ -19,6 +19,8 @@ configs/avbase.yml
 configs/fc2.yml
 configs/javbus.yml
 configs/javlibrary.yml
+configs/sehuatang.yml
+configs/wikipedia.yml
 ```
 
 To add a bundled site, place the real site YAML in `configs/`, then rebuild.
@@ -171,8 +173,8 @@ Extraction runs in three layers:
   `output.page_format`.
 - `extract.fields`: evaluated for each item node.
 
-`scope.xpath` selects repeated item nodes. Without a scope, the whole document is
-treated as a single item.
+The default extraction type is HTML. `scope.xpath` selects repeated item nodes.
+Without a scope, the whole document is treated as a single item.
 
 ```yaml
 extract:
@@ -192,11 +194,36 @@ extract:
       on_missing: skip_item
 ```
 
+For JSON APIs, set `extract.type: json`, use `scope.path` for repeated JSON
+nodes, and use field `path` values instead of XPath:
+
+```yaml
+extract:
+  type: json
+  scope:
+    path: "$.query.search.*"
+  fields:
+    title:
+      path: "$.title"
+      on_missing: skip_item
+    pageid:
+      path: "$.pageid"
+      type: int
+```
+
+JSON paths support:
+
+- root: `$`
+- object keys, such as `$.content_urls.desktop.page`
+- array indexes, such as `$.items[0].title`
+- wildcards over object values or array items, such as `$.entities.*.id`
+
 ## Field Options
 
 Supported field options:
 
 ```yaml
+path: string
 xpath: string
 attr: text | html | outer_html | attribute-name
 regex: string
@@ -212,6 +239,7 @@ resolve_url: true | false
 
 Notes:
 
+- Use `path` with `extract.type: json`; use `xpath` with HTML extraction.
 - `resolve_url: true` resolves relative URLs against the final response URL.
 - `multiple: true` returns a list.
 - When `multiple: true` and `regex` are both set, every regex match inside each
@@ -271,8 +299,9 @@ Environment variables can be read with `{env.NAME}`.
 
 ## Enhancements
 
-Tasks can optionally enrich formatted output after extraction. Current
-enhancement support is limited to actor images from Gfriends:
+Tasks can optionally enrich formatted output after extraction.
+
+Actor images can be enhanced from Gfriends:
 
 ```yaml
 enhance:
@@ -296,6 +325,23 @@ cache/gfriends/Filetree.json
 ```
 
 Only the index is cached; image files are returned as remote URLs.
+
+Actor records can also be enhanced from the bundled Wikipedia config:
+
+```yaml
+enhance:
+  wikipedia:
+    config: wikipedia
+    lang: zh
+    title_field: name
+    target_field: wikipedia
+```
+
+When enabled, the runner reads the actor name from `title_field`, runs the
+Wikipedia summary, Wikidata entity, and page content tasks, and attaches a
+best-effort `wikipedia` object to the actor. Wikipedia enrichment does not
+replace existing actor fields. Text content is returned as structured pieces
+under `wikipedia.text`, so callers can choose their own presentation.
 
 ## Next Step
 

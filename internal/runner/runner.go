@@ -366,7 +366,18 @@ func isMissingOptionalIndexValue(err error) bool {
 
 func buildURL(baseURL string, req config.RequestConfig, vars map[string]string) (string, error) {
 	if req.URL != "" {
-		return templatex.Render(req.URL, vars)
+		rendered, err := templatex.Render(req.URL, vars)
+		if err != nil {
+			return "", err
+		}
+		finalURL, err := url.Parse(rendered)
+		if err != nil {
+			return "", err
+		}
+		if err := applyRequestQuery(finalURL, req, vars); err != nil {
+			return "", err
+		}
+		return finalURL.String(), nil
 	}
 
 	path, err := templatex.Render(req.Path, vars)
@@ -382,11 +393,18 @@ func buildURL(baseURL string, req config.RequestConfig, vars map[string]string) 
 		return "", err
 	}
 	finalURL := base.ResolveReference(rel)
+	if err := applyRequestQuery(finalURL, req, vars); err != nil {
+		return "", err
+	}
+	return finalURL.String(), nil
+}
+
+func applyRequestQuery(finalURL *url.URL, req config.RequestConfig, vars map[string]string) error {
 	query := finalURL.Query()
 	for key, valueTemplate := range req.Query {
 		value, err := renderQueryValue(valueTemplate, vars, req.OmitEmptyQuery)
 		if err != nil {
-			return "", err
+			return err
 		}
 		if req.OmitEmptyQuery && strings.TrimSpace(value) == "" {
 			continue
@@ -394,7 +412,7 @@ func buildURL(baseURL string, req config.RequestConfig, vars map[string]string) 
 		query.Set(key, value)
 	}
 	finalURL.RawQuery = query.Encode()
-	return finalURL.String(), nil
+	return nil
 }
 
 func renderQueryValue(valueTemplate string, vars map[string]string, allowMissing bool) (string, error) {

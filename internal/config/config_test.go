@@ -71,6 +71,20 @@ func TestLoadBuiltinSite(t *testing.T) {
 	if _, err := cfg.Task("thread_detail"); err != nil {
 		t.Fatal(err)
 	}
+
+	cfg, err = config.Load("wikipedia")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Site.ID != "wikipedia" {
+		t.Fatalf("unexpected site id: %s", cfg.Site.ID)
+	}
+	if _, err := cfg.Task("page_summary"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cfg.Task("entity_by_title"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func assertActorImageEnhancement(t *testing.T, task config.Task, itemsKey string) {
@@ -102,6 +116,9 @@ func TestBuiltinSites(t *testing.T) {
 	}
 	if !slices.Contains(sites, "sehuatang") {
 		t.Fatalf("expected sehuatang in builtin sites, got %#v", sites)
+	}
+	if !slices.Contains(sites, "wikipedia") {
+		t.Fatalf("expected wikipedia in builtin sites, got %#v", sites)
 	}
 }
 
@@ -221,5 +238,58 @@ tasks:
 `))
 	if err == nil {
 		t.Fatal("expected unsupported enhancement source error")
+	}
+}
+
+func TestParseJSONExtractorAndWikipediaEnhancement(t *testing.T) {
+	cfg, err := config.Parse([]byte(`
+site:
+  id: wikipedia_enabled
+  base_url: http://example.test
+tasks:
+  actor_search:
+    request:
+      path: /actors
+    extract:
+      type: json
+      scope:
+        path: "$.actors.*"
+      fields:
+        name:
+          path: "$.name"
+          on_missing: skip_item
+    output:
+      type: object
+      items_key: actors
+      format:
+        name: "{name}"
+    enhance:
+      wikipedia:
+        config: wikipedia
+        lang: zh
+        title_field: name
+        target_field: wikipedia
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := cfg.Task("actor_search")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.Extract.Type != "json" {
+		t.Fatalf("unexpected extract type: %q", task.Extract.Type)
+	}
+	if task.Extract.Scope == nil || task.Extract.Scope.Path != "$.actors.*" {
+		t.Fatalf("unexpected JSON scope: %#v", task.Extract.Scope)
+	}
+	if task.Extract.Fields["name"].Path != "$.name" {
+		t.Fatalf("unexpected JSON field path: %#v", task.Extract.Fields["name"])
+	}
+	if task.Enhance.Wikipedia == nil {
+		t.Fatal("expected wikipedia enhancement")
+	}
+	if task.Enhance.Wikipedia.TargetField != "wikipedia" {
+		t.Fatalf("unexpected target field: %q", task.Enhance.Wikipedia.TargetField)
 	}
 }

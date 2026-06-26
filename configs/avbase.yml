@@ -342,3 +342,8 @@ tasks:
         items_key: actor
         name_field: name
         image_field: image
+      wikipedia:
+        config: wikipedia
+        lang: zh
+        title_field: name
+        target_field: wikipedia

@@ -78,6 +78,7 @@ type AutoclickConfig struct {
 }
 
 type ExtractConfig struct {
+	Type   string                 `yaml:"type"`
 	Scope  *ScopeConfig           `yaml:"scope"`
 	Meta   map[string]FieldConfig `yaml:"meta"`
 	Page   map[string]FieldConfig `yaml:"page"`
@@ -86,10 +87,12 @@ type ExtractConfig struct {
 
 type ScopeConfig struct {
 	XPath string `yaml:"xpath"`
+	Path  string `yaml:"path"`
 }
 
 type FieldConfig struct {
 	XPath      string `yaml:"xpath"`
+	Path       string `yaml:"path"`
 	Attr       string `yaml:"attr"`
 	Regex      string `yaml:"regex"`
 	RegexGroup int    `yaml:"regex_group"`
@@ -117,6 +120,7 @@ type OutputConfig struct {
 
 type EnhanceConfig struct {
 	ActorImage *ActorImageEnhanceConfig `yaml:"actor_image"`
+	Wikipedia  *WikipediaEnhanceConfig  `yaml:"wikipedia"`
 }
 
 type ActorImageEnhanceConfig struct {
@@ -124,6 +128,17 @@ type ActorImageEnhanceConfig struct {
 	ItemsKey   string `yaml:"items_key"`
 	NameField  string `yaml:"name_field"`
 	ImageField string `yaml:"image_field"`
+}
+
+type WikipediaEnhanceConfig struct {
+	Config      string `yaml:"config"`
+	Lang        string `yaml:"lang"`
+	TitleField  string `yaml:"title_field"`
+	TargetField string `yaml:"target_field"`
+	SummaryTask string `yaml:"summary_task"`
+	SearchTask  string `yaml:"search_task"`
+	EntityTask  string `yaml:"entity_task"`
+	ContentTask string `yaml:"content_task"`
 }
 
 func Load(path string) (*Config, error) {
@@ -196,6 +211,10 @@ func (c *Config) validateTask(name string, task Task) error {
 	}
 	if len(task.Extract.Fields) == 0 {
 		return fmt.Errorf("task %q: extract.fields must contain at least one field", name)
+	}
+	extractType := strings.ToLower(strings.TrimSpace(task.Extract.Type))
+	if extractType != "" && extractType != "html" && extractType != "json" {
+		return fmt.Errorf("task %q: unsupported extract.type %q", name, task.Extract.Type)
 	}
 	if strings.TrimSpace(task.Output.Type) == "" {
 		task.Output.Type = "list"

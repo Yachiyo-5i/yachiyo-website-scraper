@@ -111,6 +111,13 @@ own cookie.
 | `javlibrary` | Usually needs `-challenge bypass -flaresolverr http://127.0.0.1:8191` or a valid cookie |
 | `fc2` | Article pages are static enough for normal HTTP fetch in current checks; age modal content may still be present in HTML |
 | `sehuatang` | Use `-playwright http://127.0.0.1:3011` for stable browser fetching and category pages |
+| `wikipedia` | Uses Wikimedia JSON APIs with explicit project User-Agent headers; keep request rates conservative and use `-challenge off` for direct API checks |
+
+The bundled Wikipedia config follows Wikimedia's API expectations by sending
+both `User-Agent` and `Api-User-Agent`. If you fork or redistribute the scraper,
+update those headers in `configs/wikipedia.yml` so they identify your build or
+deployment. For high-volume use, keep concurrency conservative and respect
+Wikimedia `Retry-After` responses.
 
 ## Debugging Fetches
 

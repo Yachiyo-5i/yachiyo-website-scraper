@@ -14,12 +14,18 @@ Use `-config` to select a bundled site. Runtime fetch options such as
 Cloudflare handling and cookies are passed as flags or environment variables,
 not as task parameters.
 
-| Capability | Task | AVBase | JavBus | JavLibrary | FC2 |
-| --- | --- | --- | --- | --- | --- |
-| Work search or work list | `search_work` | Yes, supports `page` | Yes, exact-code detail route; `page` is accepted for a uniform interface but not used | Yes, supports `page` | Yes, exact article route; `page` is accepted for a uniform interface but not used |
-| Work detail | `work_detail` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` is the work code such as `SSIS-001` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` accepts the numeric FC2 code or supported FC2 prefixes |
-| Actor detail and actor works | `actor_detail` | Yes, by `name`, supports `page` | Yes, by `name`, supports `page` | No | No |
-| Actor candidate search | `actor_search` | No | Yes, by `keyword` | No | No |
+| Capability | Task | AVBase | JavBus | JavLibrary | FC2 | Sehuatang | Wikipedia |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Work search or work list | `search_work` | Yes, supports `page` | Yes, exact-code detail route; `page` is accepted for a uniform interface but not used | Yes, supports `page` | Yes, exact article route; `page` is accepted for a uniform interface but not used | No | No |
+| Work detail | `work_detail` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` is the work code such as `SSIS-001` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` accepts the numeric FC2 code or supported FC2 prefixes | No | No |
+| Actor detail and actor works | `actor_detail` | Yes, by `name`, supports `page` | Yes, by `name`, supports `page` | No | No | No | No |
+| Actor candidate search | `actor_search` | No | Yes, by `keyword` | No | No | No | No |
+| Forum thread list | `forum_threads` | No | No | No | No | Yes | No |
+| Forum thread detail | `thread_detail` | No | No | No | No | Yes | No |
+| Wikipedia page search | `page_search` | No | No | No | No | No | Yes |
+| Wikipedia page summary | `page_summary` | No | No | No | No | No | Yes |
+| Wikidata entity by title | `entity_by_title` | No | No | No | No | No | Yes |
+| Wikipedia page content | `page_content` | No | No | No | No | No | Yes |
 
 Pagination is single-page only. The CLI requests the page you pass with
 `-param page=...` and returns that page's data. It does not automatically fetch
@@ -178,6 +184,10 @@ For AVBase and JavBus, `data.actor.image` is enhanced by Gfriends when a
 matching actor name exists. If Gfriends has no match or its index cannot be
 loaded, the site image is kept.
 
+AVBase and JavBus actor detail also attach a best-effort `data.actor.wikipedia`
+object from the bundled Wikipedia config. This object does not replace the
+site's own actor fields.
+
 Response shape:
 
 ```json
@@ -210,7 +220,19 @@ Response shape:
       "waist_cm": null,
       "hips_cm": null,
       "followers": null,
-      "profile": null
+      "profile": null,
+      "wikipedia": {
+        "matched": true,
+        "title": "Rikka Ono",
+        "wikidata_id": "Q97031495",
+        "summary": "...",
+        "text": {
+          "intro": "...",
+          "profile": {},
+          "person": "...",
+          "external_links": []
+        }
+      }
     },
     "works": []
   }
@@ -244,6 +266,9 @@ If Gfriends has no match or its index cannot be loaded, the site image is kept.
 The Gfriends index cache is stored beside the scraper binary at
 `cache/gfriends/Filetree.json`.
 
+JavBus actor search also attaches a best-effort `wikipedia` object to each actor
+candidate.
+
 Response shape:
 
 ```json
@@ -257,10 +282,151 @@ Response shape:
         "id": "...",
         "name": "...",
         "url": "https://...",
-        "image": "https://..."
+        "image": "https://...",
+        "wikipedia": {
+          "matched": true,
+          "title": "Rikka Ono",
+          "wikidata_id": "Q97031495",
+          "summary": "...",
+          "text": {
+            "intro": "...",
+            "profile": {},
+            "person": "...",
+            "external_links": []
+          }
+        }
       }
     ]
   }
+}
+```
+
+## `page_search`
+
+Search Wikipedia page candidates.
+
+Supported sites:
+
+```text
+wikipedia
+```
+
+Parameters:
+
+```text
+keyword required. Search keyword.
+lang    optional. Defaults to zh.
+```
+
+Example:
+
+```bash
+./scraper run -config wikipedia -task page_search -param keyword='Rikka Ono' -param lang=en
+```
+
+Response shape:
+
+```json
+{
+  "ok": true,
+  "site": "wikipedia",
+  "task": "page_search",
+  "data": [
+    {
+      "title": "Rikka Ono",
+      "pageid": 7407438,
+      "snippet": "...",
+      "timestamp": "2026-06-14T16:28:45Z"
+    }
+  ]
+}
+```
+
+## `page_summary`
+
+Fetch Wikipedia REST summary data for one page title.
+
+Supported sites:
+
+```text
+wikipedia
+```
+
+Parameters:
+
+```text
+title required. Exact page title.
+lang  optional. Defaults to zh.
+```
+
+Example:
+
+```bash
+./scraper run -config wikipedia -task page_summary -param title='Rikka Ono' -param lang=en
+```
+
+Response fields include `title`, `pageid`, `lang`, `wikidata_id`,
+`description`, `summary`, `thumbnail`, `page_url`, `revision`, and `timestamp`.
+
+## `entity_by_title`
+
+Fetch Wikidata entity fields for a Wikipedia page title.
+
+Supported sites:
+
+```text
+wikipedia
+```
+
+Parameters:
+
+```text
+title required. Exact page title on the selected wiki.
+lang  optional. Defaults to zh.
+```
+
+Example:
+
+```bash
+./scraper run -config wikipedia -task entity_by_title -param title='Rikka Ono' -param lang=en
+```
+
+Response fields include labels and descriptions for `zh`, `ja`, and `en`, plus
+selected Wikidata claims such as `birth_date`, `birth_place_qid`, `height_cm`,
+`country_qid`, `occupation_qid`, social usernames, official website, IMDb id,
+Commons category, image filename, and activity period years when available.
+
+## `page_content`
+
+Fetch parsed Wikipedia page content needed for richer actor text fields.
+
+Supported sites:
+
+```text
+wikipedia
+```
+
+Parameters:
+
+```text
+title required. Exact page title.
+lang  optional. Defaults to zh.
+```
+
+Example:
+
+```bash
+./scraper run -config wikipedia -task page_content -param title='Rikka Ono' -param lang=en
+```
+
+Response fields:
+
+```json
+{
+  "title": "Rikka Ono",
+  "pageid": 7407438,
+  "wikitext": "...",
+  "external_links": []
 }
 ```
 

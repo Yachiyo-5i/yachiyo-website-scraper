@@ -293,6 +293,19 @@ func TestBuildURL(t *testing.T) {
 		t.Fatalf("unexpected absolute URL: %q", got)
 	}
 
+	got, err = buildURL("https://ignored.test", config.RequestConfig{
+		URL: "https://absolute.test/api",
+		Query: map[string]string{
+			"title": "{title}",
+		},
+	}, map[string]string{"title": "Rikka Ono"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "https://absolute.test/api?title=Rikka+Ono" {
+		t.Fatalf("unexpected absolute URL with query: %q", got)
+	}
+
 	got, err = buildURL("https://example.test", config.RequestConfig{
 		Path:           "/forum.php",
 		OmitEmptyQuery: true,

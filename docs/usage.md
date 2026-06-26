@@ -71,6 +71,12 @@ Pass multiple parameters by repeating `-param`:
 ./scraper run -config avbase -task search_work -param code=SSIS -param page=1
 ```
 
+Run a JSON API-backed task:
+
+```bash
+./scraper run -config wikipedia -task page_summary -param title='Rikka Ono' -param lang=en -challenge off
+```
+
 ## Output
 
 Successful `run` commands print formatted JSON:

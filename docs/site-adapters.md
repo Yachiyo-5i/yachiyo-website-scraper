@@ -13,7 +13,7 @@ when a site uses different internal routes or identifiers.
 ## Workflow
 
 1. Identify which unified tasks the site can support.
-2. Capture representative static HTML for each page type.
+2. Capture representative static HTML or JSON for each page type.
 3. Draft or update `configs/<site>.yml`.
 4. Validate the config.
 5. Run task smoke checks with `-dump-html` when selectors are uncertain.
@@ -67,7 +67,7 @@ request:
 ## Write Extractors
 
 Use `scope.xpath` for repeated items and relative field XPath expressions inside
-that scope:
+that scope when a task fetches HTML:
 
 ```yaml
 extract:
@@ -78,6 +78,20 @@ extract:
       xpath: ".//a[contains(@class, 'title')]"
       attr: text
       trim: true
+      on_missing: skip_item
+```
+
+Use `extract.type: json`, `scope.path`, and field `path` values when a task
+fetches a JSON API:
+
+```yaml
+extract:
+  type: json
+  scope:
+    path: "$.items.*"
+  fields:
+    title:
+      path: "$.title"
       on_missing: skip_item
 ```
 
@@ -150,6 +164,8 @@ If the site needs challenge bypassing, add the runtime flags from
 When adding a bundled site:
 
 - Update the support table in [Task Reference](tasks.md).
+- Update [YAML Configuration](configuration.md) if the adapter needs new config
+  model options or enhancements.
 - Add site-specific runtime notes in [Runtime Fetching](runtime-fetching.md).
 - Add tests for any selector behavior that is not obvious from existing tests.
 - Run the development checks from [Development Guide](development.md).

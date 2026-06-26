@@ -37,6 +37,10 @@ type Page struct {
 }
 
 func ExtractPage(body string, cfg config.ExtractConfig, opts Options) (*Page, error) {
+	if strings.EqualFold(strings.TrimSpace(cfg.Type), "json") {
+		return ExtractJSONPage(body, cfg)
+	}
+
 	doc, err := htmlquery.Parse(strings.NewReader(body))
 	if err != nil {
 		return nil, err
