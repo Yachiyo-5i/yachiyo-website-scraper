@@ -50,6 +50,9 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) (*Result, error)
 	if err != nil {
 		return nil, err
 	}
+	if task.Gfriends != nil {
+		return runGfriendsTask(ctx, cfg, task, opts)
+	}
 	if task.Wikipedia != nil {
 		return runWikipediaStructuredTask(ctx, cfg, task, opts)
 	}

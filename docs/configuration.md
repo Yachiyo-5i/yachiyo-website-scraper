@@ -21,6 +21,7 @@ configs/javbus.yml
 configs/javlibrary.yml
 configs/sehuatang.yml
 configs/wikipedia.yml
+configs/gfriends.yml
 ```
 
 To add a bundled site, place the real site YAML in `configs/`, then rebuild.
@@ -296,6 +297,26 @@ keeps the original value type; a placeholder inside a larger string is
 stringified.
 
 Environment variables can be read with `{env.NAME}`.
+
+## Local Gfriends Tasks
+
+The bundled `gfriends` config exposes actor image lookup as an independent local
+task:
+
+```yaml
+tasks:
+  actor_image:
+    params:
+      name:
+        required: true
+    gfriends:
+      type: actor_image
+      name_param: name
+```
+
+`gfriends.type` currently supports `actor_image`. `name_param` defaults to
+`name`. Local Gfriends tasks do not need `request`, `extract`, or `output`
+sections because the runner reads the Gfriends index directly.
 
 ## Enhancements
 

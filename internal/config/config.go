@@ -38,6 +38,7 @@ type Task struct {
 	Output        OutputConfig             `yaml:"output"`
 	Enhance       EnhanceConfig            `yaml:"enhance"`
 	Wikipedia     *WikipediaTaskConfig     `yaml:"wikipedia"`
+	Gfriends      *GfriendsTaskConfig      `yaml:"gfriends"`
 }
 
 type ParamSpec struct {
@@ -151,6 +152,11 @@ type WikipediaTaskConfig struct {
 	ContentTask string `yaml:"content_task"`
 }
 
+type GfriendsTaskConfig struct {
+	Type      string `yaml:"type"`
+	NameParam string `yaml:"name_param"`
+}
+
 func Load(path string) (*Config, error) {
 	if isBuiltinRef(path) {
 		return LoadBuiltin(path)
@@ -210,7 +216,7 @@ func (c *Config) validateTask(name string, task Task) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("task name cannot be empty")
 	}
-	if task.Wikipedia == nil {
+	if task.Wikipedia == nil && task.Gfriends == nil {
 		if strings.TrimSpace(task.Request.Method) == "" {
 			task.Request.Method = "GET"
 		}
@@ -242,6 +248,15 @@ func (c *Config) validateTask(name string, task Task) error {
 	if task.Wikipedia != nil {
 		if strings.TrimSpace(task.Wikipedia.Config) == "" {
 			task.Wikipedia.Config = "wikipedia"
+		}
+	}
+	if task.Gfriends != nil {
+		taskType := strings.ToLower(strings.TrimSpace(task.Gfriends.Type))
+		if taskType == "" {
+			return fmt.Errorf("task %q: gfriends.type is required", name)
+		}
+		if taskType != "actor_image" {
+			return fmt.Errorf("task %q: unsupported gfriends.type %q", name, task.Gfriends.Type)
 		}
 	}
 	if task.Enhance.ActorImage != nil {

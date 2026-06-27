@@ -175,6 +175,30 @@ func TestValidateReportsConfigErrors(t *testing.T) {
 			want: `pagination.param is required`,
 		},
 		{
+			name: "missing gfriends type",
+			mutate: func(c *Config) {
+				c.Tasks["search"] = Task{
+					Params: map[string]ParamSpec{"name": {Required: true}},
+					Gfriends: &GfriendsTaskConfig{
+						NameParam: "name",
+					},
+				}
+			},
+			want: `gfriends.type is required`,
+		},
+		{
+			name: "unsupported gfriends type",
+			mutate: func(c *Config) {
+				c.Tasks["search"] = Task{
+					Params: map[string]ParamSpec{"name": {Required: true}},
+					Gfriends: &GfriendsTaskConfig{
+						Type: "actor_profile",
+					},
+				}
+			},
+			want: `unsupported gfriends.type "actor_profile"`,
+		},
+		{
 			name: "resolve empty target",
 			mutate: func(c *Config) {
 				c.Indexes = map[string]Index{"actors": {Path: "actors.json"}}

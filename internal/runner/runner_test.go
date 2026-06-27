@@ -943,6 +943,81 @@ tasks:
 	}
 }
 
+func TestRunGfriendsActorImageTask(t *testing.T) {
+	cfg := loadInlineConfig(t, `
+site:
+  id: gfriends
+  base_url: https://gfriends.example.test
+tasks:
+  actor_image:
+    params:
+      name:
+        required: true
+    gfriends:
+      type: actor_image
+      name_param: name
+`)
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "actor_image",
+		Params:   map[string]string{"name": " Alice "},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+		Gfriends: runner.StaticActorImageLookup{"Alice": "https://cdn.example.test/Content/Alice.jpg"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+	if res.URL != "" {
+		t.Fatalf("gfriends task should not fetch a URL, got %q", res.URL)
+	}
+	data, ok := res.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected data type: %T", res.Data)
+	}
+	actor, ok := data["actor"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected actor type: %T", data["actor"])
+	}
+	if actor["name"] != "Alice" || actor["image"] != "https://cdn.example.test/Content/Alice.jpg" {
+		t.Fatalf("unexpected actor image result: %#v", actor)
+	}
+}
+
+func TestRunGfriendsActorImageTaskReportsMiss(t *testing.T) {
+	cfg := loadInlineConfig(t, `
+site:
+  id: gfriends
+  base_url: https://gfriends.example.test
+tasks:
+  actor_image:
+    params:
+      name:
+        required: true
+    gfriends:
+      type: actor_image
+      name_param: name
+`)
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "actor_image",
+		Params:   map[string]string{"name": "Bob"},
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+		Gfriends: runner.StaticActorImageLookup{"Alice": "https://cdn.example.test/Content/Alice.jpg"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK {
+		t.Fatalf("expected not found result, got %+v", res)
+	}
+	if res.Error == nil || res.Error.Type != "not_found" || res.Error.Reason != `gfriends actor image not found for "Bob"` {
+		t.Fatalf("unexpected error: %+v", res.Error)
+	}
+}
+
 func TestRunEnhancesActorSearchFromWikipediaConfig(t *testing.T) {
 	wikiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Api-User-Agent"); got == "" {

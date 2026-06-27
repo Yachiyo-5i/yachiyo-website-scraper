@@ -14,19 +14,20 @@ Use `-config` to select a bundled site. Runtime fetch options such as
 Cloudflare handling and cookies are passed as flags or environment variables,
 not as task parameters.
 
-| Capability | Task | AVBase | JavBus | JavLibrary | FC2 | Sehuatang | Wikipedia |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Work search or work list | `search_work` | Yes, supports `page` | Yes, exact-code detail route; `page` is accepted for a uniform interface but not used | Yes, supports `page` | Yes, exact article route; `page` is accepted for a uniform interface but not used | No | No |
-| Work detail | `work_detail` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` is the work code such as `SSIS-001` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` accepts the numeric FC2 code or supported FC2 prefixes | No | No |
-| Actor detail and actor works | `actor_detail` | Yes, by `name`, supports `page` | Yes, by `name`, supports `page` | No | No | No | No |
-| Actor candidate search | `actor_search` | No | Yes, by `keyword` | No | No | No | No |
-| Forum thread list | `forum_threads` | No | No | No | No | Yes | No |
-| Forum thread detail | `thread_detail` | No | No | No | No | Yes | No |
-| Wikipedia page search | `page_search` | No | No | No | No | No | Yes |
-| Wikipedia page summary | `page_summary` | No | No | No | No | No | Yes |
-| Wikidata entity by title | `entity_by_title` | No | No | No | No | No | Yes |
-| Wikipedia page content | `page_content` | No | No | No | No | No | Yes |
-| Wikipedia structured profile | `page_profile` | No | No | No | No | No | Yes |
+| Capability | Task | AVBase | JavBus | JavLibrary | FC2 | Sehuatang | Wikipedia | Gfriends |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Work search or work list | `search_work` | Yes, supports `page` | Yes, exact-code detail route; `page` is accepted for a uniform interface but not used | Yes, supports `page` | Yes, exact article route; `page` is accepted for a uniform interface but not used | No | No | No |
+| Work detail | `work_detail` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` is the work code such as `SSIS-001` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` accepts the numeric FC2 code or supported FC2 prefixes | No | No | No |
+| Actor detail and actor works | `actor_detail` | Yes, by `name`, supports `page` | Yes, by `name`, supports `page` | No | No | No | No | No |
+| Actor candidate search | `actor_search` | No | Yes, by `keyword` | No | No | No | No | No |
+| Gfriends actor image lookup | `actor_image` | No | No | No | No | No | No | Yes, by `name` |
+| Forum thread list | `forum_threads` | No | No | No | No | Yes | No | No |
+| Forum thread detail | `thread_detail` | No | No | No | No | Yes | No | No |
+| Wikipedia page search | `page_search` | No | No | No | No | No | Yes | No |
+| Wikipedia page summary | `page_summary` | No | No | No | No | No | Yes | No |
+| Wikidata entity by title | `entity_by_title` | No | No | No | No | No | Yes | No |
+| Wikipedia page content | `page_content` | No | No | No | No | No | Yes | No |
+| Wikipedia structured profile | `page_profile` | No | No | No | No | No | Yes | No |
 
 Pagination is single-page only. The CLI requests the page you pass with
 `-param page=...` and returns that page's data. It does not automatically fetch
@@ -298,6 +299,48 @@ Response shape:
         }
       }
     ]
+  }
+}
+```
+
+## `actor_image`
+
+Look up one actor image from Gfriends without fetching a site page.
+
+Supported configs:
+
+```text
+gfriends
+```
+
+Parameters:
+
+```text
+name required. Actor name.
+```
+
+Example:
+
+```bash
+./scraper run -config gfriends -task actor_image -param name=Alice
+```
+
+When the actor is found, the result contains `data.actor.name` and
+`data.actor.image`. When the actor is not found or the Gfriends index cannot be
+loaded, the task returns `ok: false` with `error.type` set to `not_found`.
+
+Response shape:
+
+```json
+{
+  "ok": true,
+  "site": "gfriends",
+  "task": "actor_image",
+  "data": {
+    "actor": {
+      "name": "Alice",
+      "image": "https://..."
+    }
   }
 }
 ```

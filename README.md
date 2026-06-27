@@ -13,19 +13,20 @@ flags or environment variables.
 Bundled site configs are embedded into the binary and can be selected with
 `-config`.
 
-| Capability | Task | AVBase | JavBus | JavLibrary | FC2 | Sehuatang | Wikipedia |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Work search or work list | `search_work` | Yes | Yes | Yes | Yes | No | No |
-| Work detail | `work_detail` | Yes | Yes | Yes | Yes | No | No |
-| Actor detail and actor works | `actor_detail` | Yes | Yes | No | No | No | No |
-| Actor candidate search | `actor_search` | No | Yes | No | No | No | No |
-| Forum thread list | `forum_threads` | No | No | No | No | Yes | No |
-| Forum thread detail | `thread_detail` | No | No | No | No | Yes | No |
-| Wikipedia page search | `page_search` | No | No | No | No | No | Yes |
-| Wikipedia page summary | `page_summary` | No | No | No | No | No | Yes |
-| Wikidata entity by title | `entity_by_title` | No | No | No | No | No | Yes |
-| Wikipedia page content | `page_content` | No | No | No | No | No | Yes |
-| Wikipedia structured profile | `page_profile` | No | No | No | No | No | Yes |
+| Capability | Task | AVBase | JavBus | JavLibrary | FC2 | Sehuatang | Wikipedia | Gfriends |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Work search or work list | `search_work` | Yes | Yes | Yes | Yes | No | No | No |
+| Work detail | `work_detail` | Yes | Yes | Yes | Yes | No | No | No |
+| Actor detail and actor works | `actor_detail` | Yes | Yes | No | No | No | No | No |
+| Actor candidate search | `actor_search` | No | Yes | No | No | No | No | No |
+| Gfriends actor image lookup | `actor_image` | No | No | No | No | No | No | Yes |
+| Forum thread list | `forum_threads` | No | No | No | No | Yes | No | No |
+| Forum thread detail | `thread_detail` | No | No | No | No | Yes | No | No |
+| Wikipedia page search | `page_search` | No | No | No | No | No | Yes | No |
+| Wikipedia page summary | `page_summary` | No | No | No | No | No | Yes | No |
+| Wikidata entity by title | `entity_by_title` | No | No | No | No | No | Yes | No |
+| Wikipedia page content | `page_content` | No | No | No | No | No | Yes | No |
+| Wikipedia structured profile | `page_profile` | No | No | No | No | No | Yes | No |
 
 Pagination is single-page only. The CLI requests the page you pass with
 `-param page=...` and returns that page's data.

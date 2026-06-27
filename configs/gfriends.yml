@@ -1,0 +1,12 @@
+site:
+  id: gfriends
+  base_url: https://raw.githubusercontent.com/gfriends/gfriends/master
+
+tasks:
+  actor_image:
+    params:
+      name:
+        required: true
+    gfriends:
+      type: actor_image
+      name_param: name

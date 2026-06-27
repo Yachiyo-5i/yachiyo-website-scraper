@@ -88,6 +88,21 @@ func TestLoadBuiltinSite(t *testing.T) {
 	if _, err := cfg.Task("page_profile"); err != nil {
 		t.Fatal(err)
 	}
+
+	cfg, err = config.Load("gfriends")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Site.ID != "gfriends" {
+		t.Fatalf("unexpected site id: %s", cfg.Site.ID)
+	}
+	task, err = cfg.Task("actor_image")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.Gfriends == nil || task.Gfriends.Type != "actor_image" {
+		t.Fatalf("unexpected gfriends task config: %#v", task.Gfriends)
+	}
 }
 
 func assertActorImageEnhancement(t *testing.T, task config.Task, itemsKey string) {
@@ -122,6 +137,9 @@ func TestBuiltinSites(t *testing.T) {
 	}
 	if !slices.Contains(sites, "wikipedia") {
 		t.Fatalf("expected wikipedia in builtin sites, got %#v", sites)
+	}
+	if !slices.Contains(sites, "gfriends") {
+		t.Fatalf("expected gfriends in builtin sites, got %#v", sites)
 	}
 }
 

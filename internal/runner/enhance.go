@@ -51,6 +51,64 @@ func defaultGfriends() ActorImageLookup {
 	return defaultGfriendsLookup
 }
 
+func runGfriendsTask(ctx context.Context, cfg *config.Config, task config.Task, opts Options) (*Result, error) {
+	vars, err := resolveParams(cfg, task, opts.Params)
+	if err != nil {
+		return nil, err
+	}
+	taskType := strings.ToLower(strings.TrimSpace(task.Gfriends.Type))
+	switch taskType {
+	case "actor_image":
+		return runGfriendsActorImageTask(ctx, cfg, task, opts, vars), nil
+	default:
+		return &Result{
+			OK:    false,
+			Site:  cfg.Site.ID,
+			Task:  opts.TaskName,
+			Error: &ErrorInfo{Type: "config_error", Reason: "unsupported gfriends task type"},
+		}, nil
+	}
+}
+
+func runGfriendsActorImageTask(ctx context.Context, cfg *config.Config, task config.Task, opts Options, vars map[string]string) *Result {
+	nameParam := firstNonEmpty(task.Gfriends.NameParam, "name")
+	name := strings.TrimSpace(vars[nameParam])
+	if name == "" {
+		return &Result{
+			OK:    false,
+			Site:  cfg.Site.ID,
+			Task:  opts.TaskName,
+			Error: &ErrorInfo{Type: "param_error", Reason: "name is required"},
+		}
+	}
+
+	lookup := opts.Gfriends
+	if lookup == nil {
+		lookup = defaultGfriends()
+	}
+	imageURL, ok := lookup.Lookup(ctx, name)
+	if !ok || strings.TrimSpace(imageURL) == "" {
+		return &Result{
+			OK:    false,
+			Site:  cfg.Site.ID,
+			Task:  opts.TaskName,
+			Error: &ErrorInfo{Type: "not_found", Reason: `gfriends actor image not found for "` + name + `"`},
+		}
+	}
+
+	return &Result{
+		OK:   true,
+		Site: cfg.Site.ID,
+		Task: opts.TaskName,
+		Data: map[string]interface{}{
+			"actor": map[string]interface{}{
+				"name":  name,
+				"image": imageURL,
+			},
+		},
+	}
+}
+
 func enhanceActorImages(ctx context.Context, data interface{}, output config.OutputConfig, cfg config.ActorImageEnhanceConfig, lookup ActorImageLookup) {
 	itemsKey := firstNonEmpty(cfg.ItemsKey, output.ItemsKey, "actors")
 	nameField := firstNonEmpty(cfg.NameField, "name")
