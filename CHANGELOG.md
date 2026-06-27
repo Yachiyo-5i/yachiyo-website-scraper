@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.3](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.4.2...v1.4.3) (2026-06-27)
+
+
+### Bug Fixes
+
+* 🐛 add gfriends actor image task ([67ae8d9](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/67ae8d9fe38a6dac8f0b18ff1d831c4c18129be5))
+
 ## [1.4.2](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.4.1...v1.4.2) (2026-06-26)
 
 
