@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -2067,6 +2068,151 @@ tasks:
 	}
 	if works[1]["url"] != server.URL+"/works/AAA-002" {
 		t.Fatalf("unexpected second work url: %#v", works[1]["url"])
+	}
+}
+
+func TestRunJavBusDailyMagnetsScansUntilFirstNonDailyTag(t *testing.T) {
+	requested := []string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Cookie"); !strings.Contains(got, "existmag=mag") {
+			t.Fatalf("expected daily magnet task to request magnet list cookie, got %q", got)
+		}
+		requested = append(requested, r.URL.Path)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		switch r.URL.Path {
+		case "/page/1":
+			w.Write([]byte(`
+				<html><body>
+					<a class="movie-box" href="/AAA-001">
+						<img src="/pics/a.jpg" title="First daily">
+						<div class="item-tag"><button>今日新種</button></div>
+						<date>AAA-001</date> / <date>2026-07-02</date>
+					</a>
+					<a class="movie-box" href="/AAA-002">
+						<img src="/pics/b.jpg" title="Second daily">
+						<div class="item-tag"><button>高清</button><button>今日新種</button></div>
+						<date>AAA-002</date> / <date>2026-07-01</date>
+					</a>
+					<ul class="pagination"><a id="next" href="/page/2">Next</a></ul>
+				</body></html>
+			`))
+		case "/page/2":
+			w.Write([]byte(`
+				<html><body>
+					<a class="movie-box" href="/AAA-003">
+						<img src="/pics/c.jpg" title="Third daily">
+						<div class="item-tag"><button>今日新種</button></div>
+						<date>AAA-003</date> / <date>2026-06-30</date>
+					</a>
+					<a class="movie-box" href="/AAA-004">
+						<img src="/pics/d.jpg" title="Old magnet">
+						<div class="item-tag"><button>5天前新種</button></div>
+						<date>AAA-004</date> / <date>2026-06-30</date>
+					</a>
+					<ul class="pagination"><a id="next" href="/page/3">Next</a></ul>
+				</body></html>
+			`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	cfg := loadInlineConfig(t, strings.ReplaceAll(`
+site:
+  id: javbus
+  base_url: __BASE__
+tasks:
+  daily_magnets:
+    params:
+      page:
+        default: "1"
+    request:
+      method: GET
+      path: /page/{page}
+    extract:
+      meta:
+        next_page:
+          xpath: "//ul[contains(concat(' ', normalize-space(@class), ' '), ' pagination ')]//a[@id='next']"
+          attr: href
+          regex: "/page/(\\d+)$"
+          type: int
+      scope:
+        xpath: "//a[contains(concat(' ', normalize-space(@class), ' '), ' movie-box ')]"
+      fields:
+        code:
+          xpath: ".//date[1]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//img"
+          attr: title
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: "."
+          attr: href
+          resolve_url: true
+        cover:
+          xpath: ".//img"
+          attr: src
+          resolve_url: true
+        release_date:
+          xpath: ".//date[2]"
+          attr: text
+          trim: true
+        tags:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' item-tag ')]//button"
+          attr: text
+          trim: true
+          multiple: true
+    pagination:
+      param: page
+      default: "1"
+    output:
+      type: object
+      items_key: works
+      format:
+        source_id: "{code}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        tags: "{tags}"
+`, "__BASE__", server.URL))
+
+	res, err := runner.Run(context.Background(), cfg, runner.Options{
+		TaskName: "daily_magnets",
+		Runtime:  fetcher.DefaultRuntimeOptions(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK {
+		t.Fatalf("expected ok result, got error: %+v", res.Error)
+	}
+
+	data, ok := res.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected data type: %T", res.Data)
+	}
+	works, ok := data["works"].([]map[string]interface{})
+	if !ok {
+		t.Fatalf("unexpected works type: %T", data["works"])
+	}
+	if len(works) != 3 {
+		t.Fatalf("expected three daily magnet works, got %d: %#v", len(works), works)
+	}
+	if works[0]["code"] != "AAA-001" || works[2]["code"] != "AAA-003" {
+		t.Fatalf("unexpected collected works: %#v", works)
+	}
+	if !reflect.DeepEqual(requested, []string{"/page/1", "/page/2"}) {
+		t.Fatalf("unexpected requested pages: %#v", requested)
+	}
+	if res.Meta["count"] != 3 || res.Meta["pages"] != 2 {
+		t.Fatalf("unexpected meta: %#v", res.Meta)
 	}
 }
 

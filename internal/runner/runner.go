@@ -50,6 +50,13 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) (*Result, error)
 	if err != nil {
 		return nil, err
 	}
+	if isJavBusDailyMagnets(cfg, opts.TaskName) {
+		return runJavBusDailyMagnets(ctx, cfg, task, opts)
+	}
+	return runConfiguredTask(ctx, cfg, task, opts)
+}
+
+func runConfiguredTask(ctx context.Context, cfg *config.Config, task config.Task, opts Options) (*Result, error) {
 	if task.Gfriends != nil {
 		return runGfriendsTask(ctx, cfg, task, opts)
 	}
@@ -182,6 +189,82 @@ func Run(ctx context.Context, cfg *config.Config, opts Options) (*Result, error)
 	return result, nil
 }
 
+func isJavBusDailyMagnets(cfg *config.Config, taskName string) bool {
+	return cfg.Site.ID == "javbus" && taskName == "daily_magnets"
+}
+
+func runJavBusDailyMagnets(ctx context.Context, cfg *config.Config, task config.Task, opts Options) (*Result, error) {
+	pageParam := "page"
+	if task.Pagination != nil && strings.TrimSpace(task.Pagination.Param) != "" {
+		pageParam = task.Pagination.Param
+	}
+	page := dailyMagnetsStartPage(task, opts, pageParam)
+	itemsKey := firstNonEmpty(task.Output.ItemsKey, "items")
+
+	var firstResult *Result
+	var lastResult *Result
+	collected := []map[string]interface{}{}
+	pages := 0
+
+	for pages < 100 {
+		pageOpts := opts
+		pageOpts.Params = paramsWithPage(opts.Params, pageParam, page)
+		pageOpts.Runtime = dailyMagnetsRuntime(opts.Runtime)
+		result, err := runConfiguredTask(ctx, cfg, task, pageOpts)
+		if err != nil {
+			return nil, err
+		}
+		if firstResult == nil {
+			firstResult = result
+		}
+		lastResult = result
+		if !result.OK {
+			return result, nil
+		}
+
+		items, err := itemsFromData(result.Data, itemsKey)
+		if err != nil {
+			return nil, err
+		}
+		pages++
+
+		stop := false
+		for _, item := range items {
+			if !hasExactTag(item, "今日新種") {
+				stop = true
+				break
+			}
+			collected = append(collected, item)
+		}
+		if stop || len(items) == 0 {
+			break
+		}
+
+		nextPage, ok := intFromMeta(result.Meta, "next_page")
+		if !ok || nextPage <= page {
+			break
+		}
+		page = nextPage
+	}
+
+	if firstResult == nil {
+		return &Result{OK: true, Site: cfg.Site.ID, Task: opts.TaskName}, nil
+	}
+	out := *firstResult
+	if lastResult != nil {
+		out.Channel = lastResult.Channel
+		out.Status = lastResult.Status
+	}
+	out.OK = true
+	out.Error = nil
+	out.Meta = map[string]interface{}{
+		"count": len(collected),
+		"pages": pages,
+	}
+	out.Data = map[string]interface{}{itemsKey: collected}
+	return &out, nil
+}
+
 func runWikipediaStructuredTask(ctx context.Context, cfg *config.Config, task config.Task, opts Options) (*Result, error) {
 	wikiTask := firstNonEmpty(task.Wikipedia.Config, "wikipedia")
 	wikiCfg, err := config.Load(wikiTask)
@@ -303,6 +386,98 @@ func pageMeta(meta extractor.ExtractedMeta) map[string]interface{} {
 		out[k] = v
 	}
 	return out
+}
+
+func dailyMagnetsStartPage(task config.Task, opts Options, pageParam string) int {
+	candidates := []string{}
+	if opts.Params != nil {
+		candidates = append(candidates, opts.Params[pageParam])
+	}
+	if spec, ok := task.Params[pageParam]; ok {
+		candidates = append(candidates, spec.Default)
+	}
+	if task.Pagination != nil {
+		candidates = append(candidates, task.Pagination.Default)
+	}
+	for _, candidate := range candidates {
+		page, err := strconv.Atoi(strings.TrimSpace(candidate))
+		if err == nil && page > 0 {
+			return page
+		}
+	}
+	return 1
+}
+
+func paramsWithPage(params map[string]string, pageParam string, page int) map[string]string {
+	out := make(map[string]string, len(params)+1)
+	for k, v := range params {
+		out[k] = v
+	}
+	out[pageParam] = strconv.Itoa(page)
+	return out
+}
+
+func dailyMagnetsRuntime(runtime fetcher.RuntimeOptions) fetcher.RuntimeOptions {
+	if strings.TrimSpace(runtime.Cookie) == "" {
+		runtime.Cookie = "age=verified; dv=1; existmag=mag"
+	}
+	return runtime
+}
+
+func itemsFromData(data interface{}, itemsKey string) ([]map[string]interface{}, error) {
+	object, ok := data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("expected object data, got %T", data)
+	}
+	raw, ok := object[itemsKey]
+	if !ok {
+		return nil, fmt.Errorf("data does not contain key %q", itemsKey)
+	}
+	items, ok := raw.([]map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("data.%s has unexpected type %T", itemsKey, raw)
+	}
+	return items, nil
+}
+
+func hasExactTag(item map[string]interface{}, tag string) bool {
+	switch tags := item["tags"].(type) {
+	case []string:
+		for _, value := range tags {
+			if strings.TrimSpace(value) == tag {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, value := range tags {
+			if strings.TrimSpace(fmt.Sprint(value)) == tag {
+				return true
+			}
+		}
+	case string:
+		return strings.TrimSpace(tags) == tag
+	}
+	return false
+}
+
+func intFromMeta(meta map[string]interface{}, key string) (int, bool) {
+	if meta == nil {
+		return 0, false
+	}
+	switch value := meta[key].(type) {
+	case int:
+		return value, true
+	case int64:
+		return int(value), true
+	case float64:
+		return int(value), true
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(value))
+		if err == nil {
+			return parsed, true
+		}
+	}
+	return 0, false
 }
 
 func applyPaginationMeta(meta map[string]interface{}, cfg *config.PaginationConfig, vars map[string]string, count int) {

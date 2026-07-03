@@ -16,6 +16,7 @@ Bundled site configs are embedded into the binary and can be selected with
 | Capability | Task | AVBase | JavBus | JavLibrary | FC2 | Sehuatang | Wikipedia | Gfriends |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Work search or work list | `search_work` | Yes | Yes | Yes | Yes | No | No | No |
+| Daily magnet work list | `daily_magnets` | No | Yes | No | No | No | No | No |
 | Work detail | `work_detail` | Yes | Yes | Yes | Yes | No | No | No |
 | Actor detail and actor works | `actor_detail` | Yes | Yes | No | No | No | No | No |
 | Actor candidate search | `actor_search` | No | Yes | No | No | No | No | No |

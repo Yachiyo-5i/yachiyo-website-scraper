@@ -102,6 +102,69 @@ tasks:
         actors: "{actors}"
         tags: "{tags}"
 
+  daily_magnets:
+    params:
+      page:
+        default: "1"
+
+    request:
+      method: GET
+      path: /page/{page}
+
+    extract:
+      meta:
+        next_page:
+          xpath: "//ul[contains(concat(' ', normalize-space(@class), ' '), ' pagination ')]//a[@id='next']"
+          attr: href
+          regex: "/page/(\\d+)$"
+          type: int
+      scope:
+        xpath: "//a[contains(concat(' ', normalize-space(@class), ' '), ' movie-box ')]"
+      fields:
+        code:
+          xpath: ".//date[1]"
+          attr: text
+          trim: true
+          on_missing: skip_item
+        title:
+          xpath: ".//img"
+          attr: title
+          trim: true
+          on_missing: skip_item
+        url:
+          xpath: "."
+          attr: href
+          resolve_url: true
+        cover:
+          xpath: ".//img"
+          attr: src
+          resolve_url: true
+        release_date:
+          xpath: ".//date[2]"
+          attr: text
+          trim: true
+        tags:
+          xpath: ".//div[contains(concat(' ', normalize-space(@class), ' '), ' item-tag ')]//button"
+          attr: text
+          trim: true
+          multiple: true
+
+    pagination:
+      param: page
+      default: "1"
+
+    output:
+      type: object
+      items_key: works
+      format:
+        source_id: "{code}"
+        code: "{code}"
+        title: "{title}"
+        url: "{url}"
+        cover: "{cover}"
+        release_date: "{release_date}"
+        tags: "{tags}"
+
   work_detail:
     params:
       code:

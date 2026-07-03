@@ -17,6 +17,7 @@ not as task parameters.
 | Capability | Task | AVBase | JavBus | JavLibrary | FC2 | Sehuatang | Wikipedia | Gfriends |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Work search or work list | `search_work` | Yes, supports `page` | Yes, exact-code detail route; `page` is accepted for a uniform interface but not used | Yes, supports `page` | Yes, exact article route; `page` is accepted for a uniform interface but not used | No | No | No |
+| Daily magnet work list | `daily_magnets` | No | Yes, scans list pages until the first non-`今日新種` item | No | No | No | No | No |
 | Work detail | `work_detail` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` is the work code such as `SSIS-001` | Yes, `code` is the `source_id` returned by `search_work` | Yes, `code` accepts the numeric FC2 code or supported FC2 prefixes | No | No | No |
 | Actor detail and actor works | `actor_detail` | Yes, by `name`, supports `page` | Yes, by `name`, supports `page` | No | No | No | No | No |
 | Actor candidate search | `actor_search` | No | Yes, by `keyword` | No | No | No | No | No |
@@ -29,9 +30,10 @@ not as task parameters.
 | Wikipedia page content | `page_content` | No | No | No | No | No | Yes | No |
 | Wikipedia structured profile | `page_profile` | No | No | No | No | No | Yes | No |
 
-Pagination is single-page only. The CLI requests the page you pass with
-`-param page=...` and returns that page's data. It does not automatically fetch
-all result pages.
+Pagination is single-page only for most tasks. The CLI requests the page you
+pass with `-param page=...` and returns that page's data. `daily_magnets` is an
+exception: it walks JavBus list pages until the first item without the
+`今日新種` tag.
 
 ## `search_work`
 
@@ -99,6 +101,63 @@ to pass into `work_detail -param code=...` when that site supports work detail.
 For AVBase, `source_id` may include a source prefix, such as
 `premium:PRED-886` or `secondface:SSIS-001`, because one visible code can map to
 multiple source pages.
+
+## `daily_magnets`
+
+Fetch JavBus list items whose card contains the exact `今日新種` tag.
+
+Supported sites:
+
+```text
+javbus
+```
+
+Parameters:
+
+```text
+page    optional. Defaults to 1. Use this only to start scanning from a later list page.
+```
+
+Example:
+
+```bash
+./scraper run -config javbus -task daily_magnets
+```
+
+The task reads list pages only. It does not fetch work detail pages. It scans
+cards in list order, collects items whose `.item-tag` buttons include exact text
+`今日新種`, and stops as soon as it sees the first card without that exact tag.
+Release dates are not used for this decision.
+
+Response shape:
+
+```json
+{
+  "ok": true,
+  "site": "javbus",
+  "task": "daily_magnets",
+  "url": "https://...",
+  "channel": "http",
+  "status": 200,
+  "meta": {
+    "count": 30,
+    "pages": 1
+  },
+  "data": {
+    "works": [
+      {
+        "source_id": "JIMMY-001",
+        "code": "JIMMY-001",
+        "title": "...",
+        "url": "https://www.javbus.com/JIMMY-001",
+        "cover": "https://www.javbus.com/pics/thumb/ccpr.jpg",
+        "release_date": "2026-07-02",
+        "tags": ["高清", "今日新種"]
+      }
+    ]
+  }
+}
+```
 
 ## `work_detail`
 

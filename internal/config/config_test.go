@@ -47,6 +47,9 @@ func TestLoadBuiltinSite(t *testing.T) {
 	if _, err := cfg.Task("work_detail"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := cfg.Task("daily_magnets"); err != nil {
+		t.Fatal(err)
+	}
 	task, err = cfg.Task("actor_detail")
 	if err != nil {
 		t.Fatal(err)
