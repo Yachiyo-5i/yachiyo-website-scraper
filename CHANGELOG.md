@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.4.3...v1.5.0) (2026-07-03)
+
+
+### Features
+
+* 🎸 add daily magnets task ([0422b45](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/0422b45e26529a2e308be0e482a2d5249311acd7))
+
 ## [1.4.3](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.4.2...v1.4.3) (2026-06-27)
 
 
