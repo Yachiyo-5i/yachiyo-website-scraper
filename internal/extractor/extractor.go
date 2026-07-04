@@ -124,6 +124,26 @@ func extractItem(node *html.Node, fields map[string]config.FieldConfig, opts Opt
 }
 
 func extractField(node *html.Node, field config.FieldConfig, opts Options) (interface{}, bool, error) {
+	value, missing, err := extractSingleField(node, field, opts)
+	if err != nil {
+		return nil, false, err
+	}
+	if !missing {
+		return value, false, nil
+	}
+	for _, fallback := range field.Fallbacks {
+		value, missing, err = extractSingleField(node, fallback, opts)
+		if err != nil {
+			return nil, false, err
+		}
+		if !missing {
+			return value, false, nil
+		}
+	}
+	return nil, true, nil
+}
+
+func extractSingleField(node *html.Node, field config.FieldConfig, opts Options) (interface{}, bool, error) {
 	xpath := strings.TrimSpace(field.XPath)
 	if xpath == "" {
 		return nil, true, nil

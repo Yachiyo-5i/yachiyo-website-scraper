@@ -170,6 +170,10 @@ tasks:
           xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[1]//em//span[@title]"
           attr: title
           trim: true
+          fallbacks:
+            - xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[1]//em"
+              attr: text
+              trim: true
         replies:
           xpath: ".//td[contains(concat(' ', normalize-space(@class), ' '), ' num ')]/a"
           attr: text
@@ -181,13 +185,17 @@ tasks:
           trim: true
           type: int
         last_reply_author:
-          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[last()]//cite/a"
+          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[2]//cite/a"
           attr: text
           trim: true
         last_reply_at:
-          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[last()]//em//span[@title]"
+          xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[2]//em//span[@title]"
           attr: title
           trim: true
+          fallbacks:
+            - xpath: "(.//td[contains(concat(' ', normalize-space(@class), ' '), ' by ')])[2]//em"
+              attr: text
+              trim: true
 
     pagination:
       param: page

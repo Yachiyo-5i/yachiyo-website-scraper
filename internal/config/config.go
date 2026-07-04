@@ -105,6 +105,7 @@ type FieldConfig struct {
 	Default    string `yaml:"default"`
 	OnMissing  string `yaml:"on_missing"`
 	ResolveURL bool   `yaml:"resolve_url"`
+	Fallbacks  []FieldConfig `yaml:"fallbacks"`
 }
 
 type PaginationConfig struct {
