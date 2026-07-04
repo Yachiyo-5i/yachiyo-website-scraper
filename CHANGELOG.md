@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.5.0...v1.5.1) (2026-07-04)
+
+
+### Bug Fixes
+
+* 🐛 parse sehuatang reply dates ([d976b84](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/d976b8418f5fa7ac0fa56864855dfa4a1d78c62f))
+
 ## [1.5.0](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.4.3...v1.5.0) (2026-07-03)
 
 
