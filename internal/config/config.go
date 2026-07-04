@@ -93,18 +93,18 @@ type ScopeConfig struct {
 }
 
 type FieldConfig struct {
-	XPath      string `yaml:"xpath"`
-	Path       string `yaml:"path"`
-	Attr       string `yaml:"attr"`
-	Regex      string `yaml:"regex"`
-	RegexGroup int    `yaml:"regex_group"`
-	Type       string `yaml:"type"`
-	Trim       bool   `yaml:"trim"`
-	Multiple   bool   `yaml:"multiple"`
-	Required   bool   `yaml:"required"`
-	Default    string `yaml:"default"`
-	OnMissing  string `yaml:"on_missing"`
-	ResolveURL bool   `yaml:"resolve_url"`
+	XPath      string        `yaml:"xpath"`
+	Path       string        `yaml:"path"`
+	Attr       string        `yaml:"attr"`
+	Regex      string        `yaml:"regex"`
+	RegexGroup int           `yaml:"regex_group"`
+	Type       string        `yaml:"type"`
+	Trim       bool          `yaml:"trim"`
+	Multiple   bool          `yaml:"multiple"`
+	Required   bool          `yaml:"required"`
+	Default    string        `yaml:"default"`
+	OnMissing  string        `yaml:"on_missing"`
+	ResolveURL bool          `yaml:"resolve_url"`
 	Fallbacks  []FieldConfig `yaml:"fallbacks"`
 }
 
