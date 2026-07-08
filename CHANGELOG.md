@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.4](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.5.3...v1.5.4) (2026-07-08)
+
+
+### Bug Fixes
+
+* 🐛 pass age gate via flaresolverr _safe cookie ([31c7154](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/31c7154b538c5f71319d1e0edc179d196509d606))
+
 ## [1.5.3](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.5.2...v1.5.3) (2026-07-08)
 
 
