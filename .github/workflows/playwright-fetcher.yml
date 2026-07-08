@@ -1,0 +1,127 @@
+name: Publish Playwright Fetcher
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/yachiyo-5i/yachiyo-playwright-fetcher
+  CONTEXT: tools/playwright-fetcher
+
+jobs:
+  detect:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes since previous release
+        id: diff
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          prev="$(git tag --sort=-version:refname | awk -v t="$TAG" 'found{print; exit} $0==t{found=1}')"
+          if [ -z "$prev" ]; then
+            echo "no previous tag; treating as changed"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$(git diff --name-only "$prev" "$TAG" -- "$CONTEXT")" ]; then
+            echo "changes under $CONTEXT between $prev and $TAG"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no changes under $CONTEXT between $prev and $TAG"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build ${{ matrix.arch }}
+    needs: detect
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout release
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.CONTEXT }}
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Push multi-arch latest
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push latest manifest
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create -t "${IMAGE}:latest" \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: Inspect
+        run: docker buildx imagetools inspect "${IMAGE}:latest"
