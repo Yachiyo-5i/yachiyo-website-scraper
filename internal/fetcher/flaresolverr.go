@@ -29,9 +29,10 @@ type flaresolverrResponse struct {
 }
 
 type flaresolverrSolution struct {
-	URL      string `json:"url"`
-	Status   int    `json:"status"`
-	Response string `json:"response"`
+	URL      string               `json:"url"`
+	Status   int                  `json:"status"`
+	Response string               `json:"response"`
+	Cookies  []flaresolverrCookie `json:"cookies"`
 }
 
 func FetchFlareSolverr(ctx context.Context, req Request, opts RuntimeOptions) (*Response, error) {
@@ -97,7 +98,47 @@ func FetchFlareSolverr(ctx context.Context, req Request, opts RuntimeOptions) (*
 		Headers:  http.Header{},
 		Body:     decoded.Solution.Response,
 		Channel:  ChannelFlareSolver,
+		Cookies:  buildCookieHeader(decoded.Solution.Cookies),
 	}, nil
+}
+
+func buildCookieHeader(cookies []flaresolverrCookie) string {
+	parts := make([]string, 0, len(cookies))
+	for _, cookie := range cookies {
+		name := strings.TrimSpace(cookie.Name)
+		if name == "" {
+			continue
+		}
+		parts = append(parts, name+"="+strings.TrimSpace(cookie.Value))
+	}
+	return strings.Join(parts, "; ")
+}
+
+func mergeCookieHeaders(base, extra string) string {
+	order := make([]string, 0)
+	values := make(map[string]string)
+	for _, header := range []string{base, extra} {
+		for _, part := range strings.Split(header, ";") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			name, value, ok := strings.Cut(part, "=")
+			name = strings.TrimSpace(name)
+			if !ok || name == "" {
+				continue
+			}
+			if _, seen := values[name]; !seen {
+				order = append(order, name)
+			}
+			values[name] = strings.TrimSpace(value)
+		}
+	}
+	parts := make([]string, 0, len(order))
+	for _, name := range order {
+		parts = append(parts, name+"="+values[name])
+	}
+	return strings.Join(parts, "; ")
 }
 
 func parseCookieHeader(cookie string) []flaresolverrCookie {

@@ -23,12 +23,7 @@ func Fetch(ctx context.Context, req Request, opts RuntimeOptions) (*Result, erro
 		if !challenge.Detected || opts.Challenge != ChallengeBypass || opts.FlareSolverrURL == "" {
 			return &Result{Response: resp, Challenge: challenge}, nil
 		}
-		bypassResp, err := FetchFlareSolverr(ctx, req, opts)
-		if err != nil {
-			return &Result{Response: resp, Challenge: challenge}, err
-		}
-		postChallenge := DetectChallenge(bypassResp.Status, bypassResp.Headers, bypassResp.Body)
-		return &Result{Response: bypassResp, Challenge: postChallenge}, nil
+		return bypassChallenge(ctx, req, opts, resp, challenge)
 	}
 
 	if opts.Challenge == ChallengeOff {
@@ -55,10 +50,25 @@ func Fetch(ctx context.Context, req Request, opts RuntimeOptions) (*Result, erro
 		return &Result{Response: resp, Challenge: challenge}, fmt.Errorf("challenge detected but --flaresolverr was not provided")
 	}
 
+	return bypassChallenge(ctx, req, opts, resp, challenge)
+}
+
+func bypassChallenge(ctx context.Context, req Request, opts RuntimeOptions, resp *Response, challenge ChallengeInfo) (*Result, error) {
 	bypassResp, err := FetchFlareSolverr(ctx, req, opts)
 	if err != nil {
 		return &Result{Response: resp, Challenge: challenge}, err
 	}
 	postChallenge := DetectChallenge(bypassResp.Status, bypassResp.Headers, bypassResp.Body)
-	return &Result{Response: bypassResp, Challenge: postChallenge}, nil
+	if postChallenge.Detected || opts.PlaywrightURL == "" || !DetectAgeVerification(bypassResp.Body) {
+		return &Result{Response: bypassResp, Challenge: postChallenge}, nil
+	}
+
+	retryOpts := opts
+	retryOpts.Cookie = mergeCookieHeaders(opts.Cookie, bypassResp.Cookies)
+	pwResp, err := FetchPlaywright(ctx, req, retryOpts)
+	if err != nil {
+		return &Result{Response: bypassResp, Challenge: postChallenge}, nil
+	}
+	pwChallenge := DetectChallenge(pwResp.Status, pwResp.Headers, pwResp.Body)
+	return &Result{Response: pwResp, Challenge: pwChallenge}, nil
 }

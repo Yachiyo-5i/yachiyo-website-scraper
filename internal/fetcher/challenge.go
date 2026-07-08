@@ -64,3 +64,10 @@ func detectChallengeMatches(status int, headers http.Header, body string) []stri
 
 	return matched
 }
+
+func DetectAgeVerification(body string) bool {
+	lower := strings.ToLower(body)
+	return strings.Contains(lower, "enter-btn") &&
+		strings.Contains(lower, "safeid=") &&
+		strings.Contains(body, "满18岁")
+}

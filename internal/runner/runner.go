@@ -119,7 +119,7 @@ func runConfiguredTask(ctx context.Context, cfg *config.Config, task config.Task
 		}
 		return result, nil
 	}
-	if detectedAgeVerification(resp.Body) {
+	if fetcher.DetectAgeVerification(resp.Body) {
 		result.OK = false
 		result.Error = &ErrorInfo{
 			Type:    "blocked",
@@ -499,13 +499,6 @@ func applyPaginationMeta(meta map[string]interface{}, cfg *config.PaginationConf
 			meta["total"] = total
 		}
 	}
-}
-
-func detectedAgeVerification(body string) bool {
-	lower := strings.ToLower(body)
-	return strings.Contains(lower, "enter-btn") &&
-		strings.Contains(lower, "safeid=") &&
-		strings.Contains(body, "满18岁")
 }
 
 func applyPaginationDefault(cfg *config.PaginationConfig, vars map[string]string) {

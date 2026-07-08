@@ -344,6 +344,80 @@ func TestFetchFallsBackToFlareSolverrWhenPlaywrightHitsChallenge(t *testing.T) {
 	}
 }
 
+func TestFetchHandsBackToPlaywrightWhenFlareSolverrHitsAgeGate(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("ordinary HTTP fetch should be skipped when Playwright URL is provided")
+	}))
+	defer target.Close()
+
+	ageGate := "<html><a class=\"enter-btn\" href=\"?safeid=abc\">满18岁</a></html>"
+	var playwrightCalls int
+	var handbackCookies string
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		playwrightCalls++
+		if playwrightCalls == 1 {
+			json.NewEncoder(w).Encode(playwrightResponse{
+				Status: http.StatusForbidden,
+				Body:   "<html><title>Just a moment...</title>Enable JavaScript and cookies to continue</html>",
+			})
+			return
+		}
+		var payload playwrightRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		handbackCookies = payload.Cookies
+		json.NewEncoder(w).Encode(playwrightResponse{
+			Status: http.StatusOK,
+			Body:   "<html>forum list</html>",
+		})
+	}))
+	defer playwright.Close()
+
+	flaresolverr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(flaresolverrResponse{
+			Status: "ok",
+			Solution: &flaresolverrSolution{
+				URL:      target.URL,
+				Status:   http.StatusOK,
+				Response: ageGate,
+				Cookies: []flaresolverrCookie{
+					{Name: "cf_clearance", Value: "token"},
+				},
+			},
+		})
+	}))
+	defer flaresolverr.Close()
+
+	result, err := Fetch(context.Background(), Request{
+		Method: http.MethodGet,
+		URL:    target.URL,
+	}, RuntimeOptions{
+		Timeout:          time.Second,
+		Challenge:        ChallengeBypass,
+		Cookie:           "session=1",
+		PlaywrightURL:    playwright.URL,
+		PlaywrightWait:   time.Second,
+		FlareSolverrURL:  flaresolverr.URL,
+		FlareSolverrWait: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if playwrightCalls != 2 {
+		t.Fatalf("expected Playwright to be called twice, got %d", playwrightCalls)
+	}
+	if result.Challenge.Detected {
+		t.Fatalf("expected handback response to be challenge-free, got %+v", result.Challenge)
+	}
+	if result.Response.Channel != ChannelPlaywright || result.Response.Body != "<html>forum list</html>" {
+		t.Fatalf("unexpected handback response: %+v", result.Response)
+	}
+	if handbackCookies != "session=1; cf_clearance=token" {
+		t.Fatalf("expected merged cookies on handback, got %q", handbackCookies)
+	}
+}
+
 func TestFetchPlaywrightChallengeWithoutFlareSolverrReturnsBlocked(t *testing.T) {
 	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(playwrightResponse{

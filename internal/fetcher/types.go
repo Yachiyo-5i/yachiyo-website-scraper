@@ -49,6 +49,7 @@ type Response struct {
 	Headers  http.Header
 	Body     string
 	Channel  Channel
+	Cookies  string
 }
 
 type ChallengeInfo struct {
