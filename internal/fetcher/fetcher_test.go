@@ -344,46 +344,52 @@ func TestFetchFallsBackToFlareSolverrWhenPlaywrightHitsChallenge(t *testing.T) {
 	}
 }
 
-func TestFetchHandsBackToPlaywrightWhenFlareSolverrHitsAgeGate(t *testing.T) {
+func TestFetchPassesAgeGateWithSafeCookieViaFlareSolverr(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("ordinary HTTP fetch should be skipped when Playwright URL is provided")
 	}))
 	defer target.Close()
 
-	ageGate := "<html><a class=\"enter-btn\" href=\"?safeid=abc\">满18岁</a></html>"
+	ageGate := "<html><script>var safeid='abc123';</script><a class=\"enter-btn\" href=\"./\">满18岁</a></html>"
 	var playwrightCalls int
-	var handbackCookies string
 	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		playwrightCalls++
-		if playwrightCalls == 1 {
-			json.NewEncoder(w).Encode(playwrightResponse{
-				Status: http.StatusForbidden,
-				Body:   "<html><title>Just a moment...</title>Enable JavaScript and cookies to continue</html>",
-			})
-			return
-		}
-		var payload playwrightRequest
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			t.Fatal(err)
-		}
-		handbackCookies = payload.Cookies
 		json.NewEncoder(w).Encode(playwrightResponse{
-			Status: http.StatusOK,
-			Body:   "<html>forum list</html>",
+			Status: http.StatusForbidden,
+			Body:   "<html><title>Just a moment...</title>Enable JavaScript and cookies to continue</html>",
 		})
 	}))
 	defer playwright.Close()
 
+	var flaresolverrCalls int
+	var gateCookies []flaresolverrCookie
 	flaresolverr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		flaresolverrCalls++
+		var payload flaresolverrRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if flaresolverrCalls == 1 {
+			json.NewEncoder(w).Encode(flaresolverrResponse{
+				Status: "ok",
+				Solution: &flaresolverrSolution{
+					URL:      target.URL,
+					Status:   http.StatusOK,
+					Response: ageGate,
+					Cookies: []flaresolverrCookie{
+						{Name: "cf_clearance", Value: "token"},
+					},
+				},
+			})
+			return
+		}
+		gateCookies = payload.Cookies
 		json.NewEncoder(w).Encode(flaresolverrResponse{
 			Status: "ok",
 			Solution: &flaresolverrSolution{
 				URL:      target.URL,
 				Status:   http.StatusOK,
-				Response: ageGate,
-				Cookies: []flaresolverrCookie{
-					{Name: "cf_clearance", Value: "token"},
-				},
+				Response: "<html>forum list</html>",
 			},
 		})
 	}))
@@ -404,17 +410,161 @@ func TestFetchHandsBackToPlaywrightWhenFlareSolverrHitsAgeGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if playwrightCalls != 2 {
-		t.Fatalf("expected Playwright to be called twice, got %d", playwrightCalls)
+	if playwrightCalls != 1 {
+		t.Fatalf("expected Playwright to be called once, got %d", playwrightCalls)
+	}
+	if flaresolverrCalls != 2 {
+		t.Fatalf("expected FlareSolverr to be called twice, got %d", flaresolverrCalls)
 	}
 	if result.Challenge.Detected {
-		t.Fatalf("expected handback response to be challenge-free, got %+v", result.Challenge)
+		t.Fatalf("expected gate response to be challenge-free, got %+v", result.Challenge)
 	}
-	if result.Response.Channel != ChannelPlaywright || result.Response.Body != "<html>forum list</html>" {
-		t.Fatalf("unexpected handback response: %+v", result.Response)
+	if result.Response.Channel != ChannelFlareSolver || result.Response.Body != "<html>forum list</html>" {
+		t.Fatalf("unexpected gate response: %+v", result.Response)
 	}
-	if handbackCookies != "session=1; cf_clearance=token" {
-		t.Fatalf("expected merged cookies on handback, got %q", handbackCookies)
+	wantCookies := []flaresolverrCookie{
+		{Name: "_safe", Value: "abc123"},
+		{Name: "session", Value: "1"},
+		{Name: "cf_clearance", Value: "token"},
+	}
+	if !reflect.DeepEqual(gateCookies, wantCookies) {
+		t.Fatalf("unexpected gate cookies:\nwant: %#v\n got: %#v", wantCookies, gateCookies)
+	}
+}
+
+func TestFetchRetriesAgeGateWithRotatedSafeID(t *testing.T) {
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(playwrightResponse{
+			Status: http.StatusForbidden,
+			Body:   "<html><title>Just a moment...</title>Enable JavaScript and cookies to continue</html>",
+		})
+	}))
+	defer playwright.Close()
+
+	ageGate := func(safeID string) string {
+		return "<html><script>var safeid='" + safeID + "';</script><a class=\"enter-btn\" href=\"./\">满18岁</a></html>"
+	}
+	var flaresolverrCalls int
+	var lastSafe string
+	flaresolverr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		flaresolverrCalls++
+		var payload flaresolverrRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range payload.Cookies {
+			if c.Name == "_safe" {
+				lastSafe = c.Value
+			}
+		}
+		body := ""
+		switch flaresolverrCalls {
+		case 1:
+			body = ageGate("first")
+		case 2:
+			body = ageGate("second")
+		default:
+			body = "<html>forum list</html>"
+		}
+		json.NewEncoder(w).Encode(flaresolverrResponse{
+			Status: "ok",
+			Solution: &flaresolverrSolution{
+				URL:      "https://example.test/page",
+				Status:   http.StatusOK,
+				Response: body,
+			},
+		})
+	}))
+	defer flaresolverr.Close()
+
+	result, err := Fetch(context.Background(), Request{
+		Method: http.MethodGet,
+		URL:    "https://example.test/page",
+	}, RuntimeOptions{
+		Timeout:          time.Second,
+		Challenge:        ChallengeBypass,
+		PlaywrightURL:    playwright.URL,
+		PlaywrightWait:   time.Second,
+		FlareSolverrURL:  flaresolverr.URL,
+		FlareSolverrWait: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if flaresolverrCalls != 3 {
+		t.Fatalf("expected FlareSolverr to be called 3 times, got %d", flaresolverrCalls)
+	}
+	if lastSafe != "second" {
+		t.Fatalf("expected retry with rotated safeid, got _safe=%q", lastSafe)
+	}
+	if result.Challenge.Detected || result.Response.Body != "<html>forum list</html>" {
+		t.Fatalf("unexpected result: challenge=%+v body=%q", result.Challenge, result.Response.Body)
+	}
+}
+
+func TestFetchReturnsAgeGateWhenSecondFlareSolverrFetchFails(t *testing.T) {
+	ageGate := "<html><script>var safeid='abc123';</script><a class=\"enter-btn\" href=\"./\">满18岁</a></html>"
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(playwrightResponse{
+			Status: http.StatusForbidden,
+			Body:   "<html><title>Just a moment...</title>Enable JavaScript and cookies to continue</html>",
+		})
+	}))
+	defer playwright.Close()
+
+	var flaresolverrCalls int
+	flaresolverr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		flaresolverrCalls++
+		if flaresolverrCalls == 1 {
+			json.NewEncoder(w).Encode(flaresolverrResponse{
+				Status: "ok",
+				Solution: &flaresolverrSolution{
+					URL:      "https://example.test/page",
+					Status:   http.StatusOK,
+					Response: ageGate,
+				},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer flaresolverr.Close()
+
+	result, err := Fetch(context.Background(), Request{
+		Method: http.MethodGet,
+		URL:    "https://example.test/page",
+	}, RuntimeOptions{
+		Timeout:          time.Second,
+		Challenge:        ChallengeBypass,
+		PlaywrightURL:    playwright.URL,
+		PlaywrightWait:   time.Second,
+		FlareSolverrURL:  flaresolverr.URL,
+		FlareSolverrWait: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Challenge.Detected {
+		t.Fatalf("expected age-gate response to be challenge-free, got %+v", result.Challenge)
+	}
+	if result.Response.Body != ageGate {
+		t.Fatalf("expected original age-gate body, got %q", result.Response.Body)
+	}
+}
+
+func TestExtractSafeID(t *testing.T) {
+	tests := []struct {
+		body string
+		want string
+	}{
+		{"<script>var safeid='n8jIwo00Q6t3i0IT';</script>", "n8jIwo00Q6t3i0IT"},
+		{"<a href=\"?safeid=abc\">enter</a>", "abc"},
+		{"<html>no marker</html>", ""},
+	}
+	for _, tt := range tests {
+		if got := ExtractSafeID(tt.body); got != tt.want {
+			t.Fatalf("ExtractSafeID(%q) = %q, want %q", tt.body, got, tt.want)
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package fetcher
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -70,4 +71,14 @@ func DetectAgeVerification(body string) bool {
 	return strings.Contains(lower, "enter-btn") &&
 		strings.Contains(lower, "safeid=") &&
 		strings.Contains(body, "满18岁")
+}
+
+var safeIDPattern = regexp.MustCompile(`safeid=['"]?([0-9A-Za-z]+)`)
+
+func ExtractSafeID(body string) string {
+	m := safeIDPattern.FindStringSubmatch(body)
+	if len(m) != 2 {
+		return ""
+	}
+	return m[1]
 }

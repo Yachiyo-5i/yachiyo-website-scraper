@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+const ageGateMaxAttempts = 3
+
 type Result struct {
 	Response  *Response
 	Challenge ChallengeInfo
@@ -59,16 +61,27 @@ func bypassChallenge(ctx context.Context, req Request, opts RuntimeOptions, resp
 		return &Result{Response: resp, Challenge: challenge}, err
 	}
 	postChallenge := DetectChallenge(bypassResp.Status, bypassResp.Headers, bypassResp.Body)
-	if postChallenge.Detected || opts.PlaywrightURL == "" || !DetectAgeVerification(bypassResp.Body) {
+	if postChallenge.Detected || !DetectAgeVerification(bypassResp.Body) {
 		return &Result{Response: bypassResp, Challenge: postChallenge}, nil
 	}
 
-	retryOpts := opts
-	retryOpts.Cookie = mergeCookieHeaders(opts.Cookie, bypassResp.Cookies)
-	pwResp, err := FetchPlaywright(ctx, req, retryOpts)
-	if err != nil {
-		return &Result{Response: bypassResp, Challenge: postChallenge}, nil
+	gated := bypassResp
+	for attempt := 0; attempt < ageGateMaxAttempts; attempt++ {
+		safeID := ExtractSafeID(gated.Body)
+		if safeID == "" {
+			break
+		}
+		retryOpts := opts
+		retryOpts.Cookie = mergeCookieHeaders("_safe="+safeID, mergeCookieHeaders(opts.Cookie, gated.Cookies))
+		gateResp, err := FetchFlareSolverr(ctx, req, retryOpts)
+		if err != nil {
+			break
+		}
+		gateChallenge := DetectChallenge(gateResp.Status, gateResp.Headers, gateResp.Body)
+		if gateChallenge.Detected || !DetectAgeVerification(gateResp.Body) {
+			return &Result{Response: gateResp, Challenge: gateChallenge}, nil
+		}
+		gated = gateResp
 	}
-	pwChallenge := DetectChallenge(pwResp.Status, pwResp.Headers, pwResp.Body)
-	return &Result{Response: pwResp, Challenge: pwChallenge}, nil
+	return &Result{Response: gated, Challenge: ChallengeInfo{}}, nil
 }
