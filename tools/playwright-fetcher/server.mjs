@@ -60,6 +60,34 @@ function writeJSON(res, status, payload) {
   res.end(encoded);
 }
 
+const cookieJar = new Map();
+
+function cookieKey(cookie) {
+  return `${cookie.name}|${cookie.domain}|${cookie.path}`;
+}
+
+function rememberCookies(cookies) {
+  for (const cookie of cookies || []) {
+    cookieJar.set(cookieKey(cookie), cookie);
+  }
+}
+
+async function applySavedCookies(context) {
+  if (cookieJar.size === 0) return;
+  const now = Date.now() / 1000;
+  const cookies = [];
+  for (const [key, cookie] of cookieJar) {
+    if (typeof cookie.expires === 'number' && cookie.expires > 0 && cookie.expires < now) {
+      cookieJar.delete(key);
+      continue;
+    }
+    cookies.push(cookie);
+  }
+  if (cookies.length > 0) {
+    await context.addCookies(cookies).catch(() => {});
+  }
+}
+
 async function applyCookieHeader(context, targetURL, cookieHeader) {
   if (!cookieHeader || typeof cookieHeader !== 'string') return;
   const url = new URL(targetURL);
@@ -76,6 +104,27 @@ async function applyCookieHeader(context, targetURL, cookieHeader) {
   }).filter(Boolean);
   if (cookies.length > 0) {
     await context.addCookies(cookies);
+  }
+}
+
+async function waitForChallengeToSettle(page, timeout) {
+  const deadline = Date.now() + Math.min(timeout, 15000);
+  let lastResponse = null;
+  for (;;) {
+    const challenged = await page.evaluate(() => {
+      if (globalThis._cf_chl_opt) return true;
+      return /just a moment|attention required/i.test(document.title || '');
+    }).catch(() => false);
+    if (!challenged || Date.now() >= deadline) return lastResponse;
+    const response = await page.waitForNavigation({
+      waitUntil: 'domcontentloaded',
+      timeout: Math.max(1, deadline - Date.now())
+    }).catch(() => null);
+    if (response) {
+      lastResponse = response;
+    } else {
+      await page.waitForTimeout(500);
+    }
   }
 }
 
@@ -140,6 +189,7 @@ async function fetchPage(payload) {
     locale: 'zh-CN',
     extraHTTPHeaders: payload.headers || {}
   });
+  await applySavedCookies(context);
   await applyCookieHeader(context, payload.url, payload.cookies);
 
   const page = await context.newPage();
@@ -150,6 +200,7 @@ async function fetchPage(payload) {
     }
 
     let response = await page.goto(payload.url, { waitUntil: 'domcontentloaded', timeout });
+    response = await waitForChallengeToSettle(page, timeout) || response;
     response = await maybeAutoclick(page, payload.autoclick, timeout) || response;
     response = await settleSehuatangAgeGate(context, page, payload.url) || response;
     await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) }).catch(() => {});
@@ -167,6 +218,7 @@ async function fetchPage(payload) {
       body: html
     };
   } finally {
+    await context.cookies().then(rememberCookies).catch(() => {});
     await context.close();
   }
 }

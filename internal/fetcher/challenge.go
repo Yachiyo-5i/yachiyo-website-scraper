@@ -57,7 +57,7 @@ func detectChallengeMatches(status int, headers http.Header, body string) []stri
 
 	hasChallengePlatform := strings.Contains(lowerBody, "challenge-platform")
 	hasActiveCloudflareChallenge := strings.Contains(lowerBody, "_cf_chl_opt") ||
-		strings.Contains(lowerBody, "/cdn-cgi/challenge-platform/h/")
+		strings.Contains(lowerBody, "/orchestrate/chl_page/")
 	if hasChallengePlatform && hasActiveCloudflareChallenge {
 		matched = append(matched, "body: active Cloudflare challenge-platform")
 	}

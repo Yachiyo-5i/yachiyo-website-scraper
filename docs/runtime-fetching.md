@@ -10,7 +10,9 @@ take precedence.
 
 Pass `-playwright` when a site needs a real browser session. Unlike
 FlareSolverr, a Playwright URL selects the browser fetch channel directly; the
-CLI does not try normal HTTP first.
+CLI does not try normal HTTP first. With `-challenge bypass` and a
+`-flaresolverr` URL, a challenge detected on the Playwright response falls back
+to FlareSolverr automatically.
 
 ## Flags
 
@@ -110,7 +112,7 @@ own cookie.
 | `javbus` | Includes a non-account default cookie for age and region verification; runtime `-cookie` overrides it |
 | `javlibrary` | Usually needs `-challenge bypass -flaresolverr http://127.0.0.1:8191` or a valid cookie |
 | `fc2` | Article pages are static enough for normal HTTP fetch in current checks; age modal content may still be present in HTML |
-| `sehuatang` | Use `-playwright http://127.0.0.1:3011` for stable browser fetching and category pages |
+| `sehuatang` | Use `-playwright http://127.0.0.1:3011` for stable browser fetching and category pages; add `-challenge bypass -flaresolverr http://127.0.0.1:8191` so challenged pages fall back to FlareSolverr during long sweeps |
 | `wikipedia` | Uses Wikimedia JSON APIs with explicit project User-Agent headers; keep request rates conservative and use `-challenge off` for direct API checks |
 
 The bundled Wikipedia config follows Wikimedia's API expectations by sending

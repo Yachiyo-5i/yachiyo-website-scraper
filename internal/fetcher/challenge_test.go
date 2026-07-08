@@ -18,6 +18,19 @@ func TestDetectChallengeIgnoresCloudflareAnalyticsJSD(t *testing.T) {
 	}
 }
 
+func TestDetectChallengeIgnoresPassiveChallengePlatformBeacon(t *testing.T) {
+	body := `<html><head><title>高清中文字幕</title></head>
+<body>
+<table><tbody id="normalthread_1"><tr><a class="xst">thread</a></tr></tbody></table>
+<script src="/cdn-cgi/challenge-platform/h/b/scripts/jsd/abc123/main.js"></script>
+</body></html>`
+
+	info := DetectChallenge(http.StatusOK, http.Header{}, body)
+	if info.Detected {
+		t.Fatalf("expected passive challenge-platform beacon not to be treated as challenge, got: %+v", info)
+	}
+}
+
 func TestDetectChallengeFindsActiveCloudflareChallenge(t *testing.T) {
 	body := `<html><head><title>Just a moment...</title></head>
 <body><script>window._cf_chl_opt={};</script><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>`

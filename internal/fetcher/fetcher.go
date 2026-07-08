@@ -20,7 +20,15 @@ func Fetch(ctx context.Context, req Request, opts RuntimeOptions) (*Result, erro
 			return &Result{Response: resp}, nil
 		}
 		challenge := DetectChallenge(resp.Status, resp.Headers, resp.Body)
-		return &Result{Response: resp, Challenge: challenge}, nil
+		if !challenge.Detected || opts.Challenge != ChallengeBypass || opts.FlareSolverrURL == "" {
+			return &Result{Response: resp, Challenge: challenge}, nil
+		}
+		bypassResp, err := FetchFlareSolverr(ctx, req, opts)
+		if err != nil {
+			return &Result{Response: resp, Challenge: challenge}, err
+		}
+		postChallenge := DetectChallenge(bypassResp.Status, bypassResp.Headers, bypassResp.Body)
+		return &Result{Response: bypassResp, Challenge: postChallenge}, nil
 	}
 
 	if opts.Challenge == ChallengeOff {

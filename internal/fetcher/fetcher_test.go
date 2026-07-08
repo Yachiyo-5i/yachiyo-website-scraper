@@ -289,6 +289,90 @@ func TestFetchUsesPlaywrightWhenURLIsProvided(t *testing.T) {
 	}
 }
 
+func TestFetchFallsBackToFlareSolverrWhenPlaywrightHitsChallenge(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("ordinary HTTP fetch should be skipped when Playwright URL is provided")
+	}))
+	defer target.Close()
+
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(playwrightResponse{
+			Status: http.StatusForbidden,
+			Body:   "<html><title>Just a moment...</title>Enable JavaScript and cookies to continue</html>",
+		})
+	}))
+	defer playwright.Close()
+
+	flaresolverr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload flaresolverrRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.URL != target.URL {
+			t.Fatalf("unexpected FlareSolverr URL: %q", payload.URL)
+		}
+		json.NewEncoder(w).Encode(flaresolverrResponse{
+			Status: "ok",
+			Solution: &flaresolverrSolution{
+				URL:      target.URL + "/solved",
+				Status:   http.StatusOK,
+				Response: "<html>solved</html>",
+			},
+		})
+	}))
+	defer flaresolverr.Close()
+
+	result, err := Fetch(context.Background(), Request{
+		Method: http.MethodGet,
+		URL:    target.URL,
+	}, RuntimeOptions{
+		Timeout:          time.Second,
+		Challenge:        ChallengeBypass,
+		PlaywrightURL:    playwright.URL,
+		PlaywrightWait:   time.Second,
+		FlareSolverrURL:  flaresolverr.URL,
+		FlareSolverrWait: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Challenge.Detected {
+		t.Fatalf("expected bypass response to be challenge-free, got %+v", result.Challenge)
+	}
+	if result.Response.Channel != ChannelFlareSolver || result.Response.Body != "<html>solved</html>" {
+		t.Fatalf("unexpected bypass response: %+v", result.Response)
+	}
+}
+
+func TestFetchPlaywrightChallengeWithoutFlareSolverrReturnsBlocked(t *testing.T) {
+	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(playwrightResponse{
+			Status: http.StatusForbidden,
+			Body:   "<html><title>Just a moment...</title>Enable JavaScript and cookies to continue</html>",
+		})
+	}))
+	defer playwright.Close()
+
+	result, err := Fetch(context.Background(), Request{
+		Method: http.MethodGet,
+		URL:    "https://example.test/page",
+	}, RuntimeOptions{
+		Timeout:        time.Second,
+		Challenge:      ChallengeBypass,
+		PlaywrightURL:  playwright.URL,
+		PlaywrightWait: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Challenge.Detected {
+		t.Fatal("expected challenge to be detected")
+	}
+	if result.Response.Channel != ChannelPlaywright {
+		t.Fatalf("unexpected response channel: %s", result.Response.Channel)
+	}
+}
+
 func TestFetchUsesPlaywrightDirectlyWhenURLIsProvided(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("ordinary HTTP fetch should be skipped when Playwright URL is provided")
