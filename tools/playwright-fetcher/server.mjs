@@ -4,6 +4,8 @@ import { chromium } from 'playwright';
 const host = process.env.HOST || '0.0.0.0';
 const port = Number(process.env.PORT || '3001');
 const defaultTimeout = Number(process.env.PLAYWRIGHT_TIMEOUT || '60000');
+const challengeSettleTimeout = Number(process.env.PLAYWRIGHT_CHALLENGE_WAIT || '6000');
+const networkIdleTimeout = Number(process.env.PLAYWRIGHT_NETWORK_IDLE_WAIT || '4000');
 const browserEndpoint = process.env.PLAYWRIGHT_WS_URL || '';
 const userAgent = process.env.USER_AGENT ||
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -108,7 +110,7 @@ async function applyCookieHeader(context, targetURL, cookieHeader) {
 }
 
 async function waitForChallengeToSettle(page, timeout) {
-  const deadline = Date.now() + Math.min(timeout, 15000);
+  const deadline = Date.now() + Math.min(timeout, challengeSettleTimeout);
   let lastResponse = null;
   for (;;) {
     const challenged = await page.evaluate(() => {
@@ -172,7 +174,7 @@ async function maybeAutoclick(page, autoclick, timeout) {
   }).catch(() => null);
   await element.click({ timeout: clickTimeout });
   const response = await navigation;
-  await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, networkIdleTimeout) }).catch(() => {});
   await page.waitForTimeout(Math.max(0, cfg.settleMs));
   return response;
 }
@@ -203,7 +205,7 @@ async function fetchPage(payload) {
     response = await waitForChallengeToSettle(page, timeout) || response;
     response = await maybeAutoclick(page, payload.autoclick, timeout) || response;
     response = await settleSehuatangAgeGate(context, page, payload.url) || response;
-    await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, 15000) }).catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: Math.min(timeout, networkIdleTimeout) }).catch(() => {});
     await page.waitForTimeout(Number(payload.settle_ms || 500));
 
     const html = await page.content();
