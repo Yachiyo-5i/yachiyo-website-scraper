@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.5.2...v1.5.3) (2026-07-08)
+
+
+### Bug Fixes
+
+* 🐛 hand age gate back to playwright after flaresolverr bypass ([cd4f13a](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/cd4f13a475a0e2b6ed3c6443697b764380a71d53))
+
 ## [1.5.2](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.5.1...v1.5.2) (2026-07-08)
 
 
