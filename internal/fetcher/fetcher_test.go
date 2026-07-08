@@ -458,6 +458,71 @@ func TestFetchFlareSolverrSendsExpectedPayloadAndParsesSolution(t *testing.T) {
 	}
 }
 
+func TestFetchFlareSolverrRetriesSehuatangAgeGate(t *testing.T) {
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		var payload flaresolverrRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		calls++
+
+		w.Header().Set("Content-Type", "application/json")
+		if calls == 1 {
+			wantCookies := []flaresolverrCookie{{Name: "a", Value: "1"}, {Name: "_safe", Value: "old"}}
+			if !reflect.DeepEqual(payload.Cookies, wantCookies) {
+				t.Fatalf("unexpected first-request cookies:\nwant: %#v\n got: %#v", wantCookies, payload.Cookies)
+			}
+			json.NewEncoder(w).Encode(flaresolverrResponse{
+				Status: "ok",
+				Solution: &flaresolverrSolution{
+					URL:    "https://www.sehuatang.org/thread-3598943-1-1.html",
+					Status: http.StatusOK,
+					Response: `<html><body>
+						<script>var safeid='fresh-safe-id';</script>
+						<a class="enter-btn" href="./">If you are over 18, please click here</a>
+					</body></html>`,
+				},
+			})
+			return
+		}
+
+		wantCookies := []flaresolverrCookie{{Name: "a", Value: "1"}, {Name: "_safe", Value: "fresh-safe-id"}}
+		if !reflect.DeepEqual(payload.Cookies, wantCookies) {
+			t.Fatalf("unexpected retry cookies:\nwant: %#v\n got: %#v", wantCookies, payload.Cookies)
+		}
+		json.NewEncoder(w).Encode(flaresolverrResponse{
+			Status: "ok",
+			Solution: &flaresolverrSolution{
+				URL:      "https://www.sehuatang.org/thread-3598943-1-1.html",
+				Status:   http.StatusOK,
+				Response: `<html><body><h1>thread content</h1></body></html>`,
+			},
+		})
+	}))
+	defer server.Close()
+
+	resp, err := FetchFlareSolverr(context.Background(), Request{
+		URL: "https://www.sehuatang.org/thread-3598943-1-1.html",
+	}, RuntimeOptions{
+		FlareSolverrURL:  server.URL,
+		FlareSolverrWait: time.Second,
+		Cookie:           "a=1; _safe=old",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected 2 FlareSolverr calls, got %d", calls)
+	}
+	if resp.Body != `<html><body><h1>thread content</h1></body></html>` {
+		t.Fatalf("unexpected response body: %q", resp.Body)
+	}
+}
+
 func TestFetchFlareSolverrUsesDefaultsFromSolution(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(flaresolverrResponse{

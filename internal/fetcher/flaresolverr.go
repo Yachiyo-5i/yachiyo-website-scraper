@@ -7,8 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 )
+
+var sehuatangSafeIDPattern = regexp.MustCompile(`(?i)safeid\s*=\s*['"]([^'"]+)['"]`)
 
 type flaresolverrRequest struct {
 	Cmd        string               `json:"cmd"`
@@ -46,13 +50,47 @@ func FetchFlareSolverr(ctx context.Context, req Request, opts RuntimeOptions) (*
 		Cookies:    cookies,
 		MaxTimeout: int(opts.FlareSolverrWait.Milliseconds()),
 	}
+
+	client := &http.Client{Timeout: opts.FlareSolverrWait}
+	endpoint := strings.TrimRight(opts.FlareSolverrURL, "/") + "/v1"
+
+	decoded, err := doFlareSolverrRequest(ctx, client, endpoint, payload)
+	if err != nil {
+		return nil, err
+	}
+	if safeID := sehuatangAgeGateSafeID(req.URL, decoded.Solution.Response); safeID != "" {
+		payload.Cookies = withFlareSolverrCookie(payload.Cookies, flaresolverrCookie{
+			Name:  "_safe",
+			Value: safeID,
+		})
+		decoded, err = doFlareSolverrRequest(ctx, client, endpoint, payload)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	status := decoded.Solution.Status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	finalURL := decoded.Solution.URL
+	if finalURL == "" {
+		finalURL = req.URL
+	}
+	return &Response{
+		Status:   status,
+		FinalURL: finalURL,
+		Headers:  http.Header{},
+		Body:     decoded.Solution.Response,
+		Channel:  ChannelFlareSolver,
+	}, nil
+}
+
+func doFlareSolverrRequest(ctx context.Context, client *http.Client, endpoint string, payload flaresolverrRequest) (*flaresolverrResponse, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
-
-	client := &http.Client{Timeout: opts.FlareSolverrWait}
-	endpoint := strings.TrimRight(opts.FlareSolverrURL, "/") + "/v1"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -82,22 +120,48 @@ func FetchFlareSolverr(ctx context.Context, req Request, opts RuntimeOptions) (*
 	if decoded.Solution == nil {
 		return nil, fmt.Errorf("flaresolverr returned no solution")
 	}
+	return &decoded, nil
+}
 
-	status := decoded.Solution.Status
-	if status == 0 {
-		status = http.StatusOK
+func sehuatangAgeGateSafeID(rawURL, body string) string {
+	if !isSehuatangURL(rawURL) {
+		return ""
 	}
-	finalURL := decoded.Solution.URL
-	if finalURL == "" {
-		finalURL = req.URL
+	lower := strings.ToLower(body)
+	if !strings.Contains(lower, "safeid=") {
+		return ""
 	}
-	return &Response{
-		Status:   status,
-		FinalURL: finalURL,
-		Headers:  http.Header{},
-		Body:     decoded.Solution.Response,
-		Channel:  ChannelFlareSolver,
-	}, nil
+	if !strings.Contains(lower, "enter-btn") &&
+		!strings.Contains(lower, "static/safe/") &&
+		!strings.Contains(lower, "if you are over 18") {
+		return ""
+	}
+	matches := sehuatangSafeIDPattern.FindStringSubmatch(body)
+	if len(matches) < 2 {
+		return ""
+	}
+	return matches[1]
+}
+
+func isSehuatangURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host == "sehuatang.org" || strings.HasSuffix(host, ".sehuatang.org")
+}
+
+func withFlareSolverrCookie(cookies []flaresolverrCookie, cookie flaresolverrCookie) []flaresolverrCookie {
+	next := make([]flaresolverrCookie, 0, len(cookies)+1)
+	for _, existing := range cookies {
+		if strings.EqualFold(existing.Name, cookie.Name) {
+			continue
+		}
+		next = append(next, existing)
+	}
+	next = append(next, cookie)
+	return next
 }
 
 func parseCookieHeader(cookie string) []flaresolverrCookie {
