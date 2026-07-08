@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.5](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.5.4...v1.5.5) (2026-07-08)
+
+
+### Performance Improvements
+
+* ⚡️ cap cloudflare and networkidle waits in playwright fetcher ([a784fa9](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/a784fa9a9ac28c5b0f2331ce3ef8560df0ac6d95))
+* ⚡️ fail fast on flaresolverr age gate, widen safeid match ([aa3f675](https://github.com/Yachiyo-5i/yachiyo-website-scraper/commit/aa3f6750e4afc407074c5062fc13561cdae80590))
+
 ## [1.5.4](https://github.com/Yachiyo-5i/yachiyo-website-scraper/compare/v1.5.3...v1.5.4) (2026-07-08)
 
 
