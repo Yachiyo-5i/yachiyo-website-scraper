@@ -73,7 +73,7 @@ func DetectAgeVerification(body string) bool {
 		strings.Contains(body, "满18岁")
 }
 
-var safeIDPattern = regexp.MustCompile(`safeid=['"]?([0-9A-Za-z]+)`)
+var safeIDPattern = regexp.MustCompile(`(?i)safeid\s*=\s*['"]?([^'"\s&;]+)`)
 
 func ExtractSafeID(body string) string {
 	m := safeIDPattern.FindStringSubmatch(body)

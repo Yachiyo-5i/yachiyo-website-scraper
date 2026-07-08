@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -432,7 +433,7 @@ func TestFetchPassesAgeGateWithSafeCookieViaFlareSolverr(t *testing.T) {
 	}
 }
 
-func TestFetchRetriesAgeGateWithRotatedSafeID(t *testing.T) {
+func TestFetchStopsAgeGateAfterSingleSafeRetry(t *testing.T) {
 	playwright := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(playwrightResponse{
 			Status: http.StatusForbidden,
@@ -457,21 +458,12 @@ func TestFetchRetriesAgeGateWithRotatedSafeID(t *testing.T) {
 				lastSafe = c.Value
 			}
 		}
-		body := ""
-		switch flaresolverrCalls {
-		case 1:
-			body = ageGate("first")
-		case 2:
-			body = ageGate("second")
-		default:
-			body = "<html>forum list</html>"
-		}
 		json.NewEncoder(w).Encode(flaresolverrResponse{
 			Status: "ok",
 			Solution: &flaresolverrSolution{
 				URL:      "https://example.test/page",
 				Status:   http.StatusOK,
-				Response: body,
+				Response: ageGate("safe" + strconv.Itoa(flaresolverrCalls)),
 			},
 		})
 	}))
@@ -491,14 +483,14 @@ func TestFetchRetriesAgeGateWithRotatedSafeID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if flaresolverrCalls != 3 {
-		t.Fatalf("expected FlareSolverr to be called 3 times, got %d", flaresolverrCalls)
+	if flaresolverrCalls != 2 {
+		t.Fatalf("expected FlareSolverr to be called twice (initial + one retry), got %d", flaresolverrCalls)
 	}
-	if lastSafe != "second" {
-		t.Fatalf("expected retry with rotated safeid, got _safe=%q", lastSafe)
+	if lastSafe != "safe1" {
+		t.Fatalf("expected retry to reuse the first safeid, got _safe=%q", lastSafe)
 	}
-	if result.Challenge.Detected || result.Response.Body != "<html>forum list</html>" {
-		t.Fatalf("unexpected result: challenge=%+v body=%q", result.Challenge, result.Response.Body)
+	if !DetectAgeVerification(result.Response.Body) {
+		t.Fatalf("expected the still-gated body to be returned, got %q", result.Response.Body)
 	}
 }
 
@@ -559,6 +551,8 @@ func TestExtractSafeID(t *testing.T) {
 	}{
 		{"<script>var safeid='n8jIwo00Q6t3i0IT';</script>", "n8jIwo00Q6t3i0IT"},
 		{"<a href=\"?safeid=abc\">enter</a>", "abc"},
+		{"<script>var safeid = 'ab-cd_12';</script>", "ab-cd_12"},
+		{"<a href=\"?safeid=abc&foo=1\">enter</a>", "abc"},
 		{"<html>no marker</html>", ""},
 	}
 	for _, tt := range tests {

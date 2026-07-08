@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const ageGateMaxAttempts = 3
+const ageGateMaxAttempts = 1
 
 type Result struct {
 	Response  *Response
